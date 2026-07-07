@@ -1,0 +1,11 @@
+name: CI - ai-service
+on:
+  pull_request:
+    paths:
+      - "apps/ai-service/**"
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: poetry setup, install, ruff/mypy lint, pytest

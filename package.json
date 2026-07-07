@@ -1,0 +1,17 @@
+{
+  "name": "lingumentor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LinguaMentor monorepo root — see docs/architecture/project-structure-and-conventions.md",
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:api-gateway": "pnpm --filter api-gateway dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

@@ -1,0 +1,12 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: build Docker images for api-gateway, ai-service, worker
+      # TODO: push to registry, trigger Coolify/Dokploy webhook per
+      #       docs/architecture/adr/0001-deployment-architecture-patch-v1.md §4.4

@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "ai-service"
+version = "0.1.0"
+description = "LinguaMentor AI orchestration service — the five engines"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115"
+asyncpg = "^0.29"       # runtime DB queries — see app/db/repositories/
+sqlalchemy = "^2.0"     # models are ORM-only, for Alembic autogenerate — see app/db/models/
+alembic = "^1.13"
+pydantic = "^2.9"
+arq = "^0.26"           # only used if this service also enqueues; worker/ owns the consumers
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

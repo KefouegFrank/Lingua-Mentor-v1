@@ -1,0 +1,34 @@
+# Production compose file for the single VPS (deployment patch §5).
+# Redis is self-hosted here; Postgres is external (Neon) and reached over the network.
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]   # AOF persistence, per §3.3/§8.2
+
+  api-gateway:
+    build: ../apps/api-gateway
+    env_file: ../apps/api-gateway/.env.production
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  ai-service:
+    build: ../apps/ai-service
+    env_file: ../apps/ai-service/.env.production
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  worker:
+    build: ../apps/worker
+    env_file: ../apps/worker/.env.production
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

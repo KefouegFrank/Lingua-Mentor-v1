@@ -1,0 +1,12 @@
+name: CI - frontend
+on:
+  pull_request:
+    paths:
+      - "apps/frontend/**"
+      - "packages/**"
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: pnpm setup, install, lint, test, build — mirror api-gateway workflow structure

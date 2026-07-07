@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "worker"
+version = "0.1.0"
+description = "LinguaMentor background job worker — arq on Redis"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+arq = "^0.26"
+asyncpg = "^0.29"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

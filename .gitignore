@@ -1,0 +1,41 @@
+# --- dependencies ---
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- build output ---
+.next/
+dist/
+build/
+*.egg-info/
+
+# --- env & secrets ---
+# Matches .env, .env.local, .env.production, .env.development, .env.<anything> —
+# then explicitly un-ignores the committed template files.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!*.example
+
+# --- logs ---
+*.log
+npm-debug.log*
+
+# --- OS / editor ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- test / coverage ---
+coverage/
+.pytest_cache/
+htmlcov/
+
+# --- misc ---
+.turbo/
+*.tsbuildinfo

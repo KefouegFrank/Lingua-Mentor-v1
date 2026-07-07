@@ -1,0 +1,7 @@
+# Only the JS/TS apps and packages are part of the pnpm workspace.
+# ai-service/ and worker/ are Python and managed independently via pyproject.toml —
+# see docs/architecture/project-structure-and-conventions.md for the full rationale.
+packages:
+  - "apps/frontend"
+  - "apps/api-gateway"
+  - "packages/*"

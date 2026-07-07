@@ -1,0 +1,16 @@
+{
+  "name": "api-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "^4.x",
+    "bullmq": "^5.x"
+  }
+}

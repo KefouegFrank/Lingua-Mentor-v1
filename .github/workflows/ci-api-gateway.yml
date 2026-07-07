@@ -1,0 +1,12 @@
+name: CI - api-gateway
+on:
+  pull_request:
+    paths:
+      - "apps/api-gateway/**"
+      - "packages/**"
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: pnpm setup, install, lint, test, build

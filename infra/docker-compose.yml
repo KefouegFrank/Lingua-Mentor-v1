@@ -1,0 +1,36 @@
+# Local development compose file.
+# Postgres is NOT included here — connect to a Neon dev branch instead,
+# per deployment patch §3.1 (Neon branching also gives you free per-feature DB branches locally).
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  api-gateway:
+    build: ../apps/api-gateway
+    env_file: ../apps/api-gateway/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+
+  ai-service:
+    build: ../apps/ai-service
+    env_file: ../apps/ai-service/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  worker:
+    build: ../apps/worker
+    env_file: ../apps/worker/.env
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
