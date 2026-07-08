@@ -12,6 +12,14 @@ bullmq = "^2.15"
 asyncpg = "^0.29"
 httpx = "^0.28"         # calls ai-service internal endpoints; engines live there, not here
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.25"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

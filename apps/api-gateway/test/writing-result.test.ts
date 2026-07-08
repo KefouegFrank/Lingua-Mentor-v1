@@ -1,0 +1,121 @@
+import { describe, expect, it } from "vitest";
+
+import { buildApp } from "../src/app";
+import { LEARNER_PROFILE_ID, SESSION_ID, makeFakeDb, makeFakeQueue } from "./helpers";
+
+function resultUrl(id = SESSION_ID) {
+	return `/api/v1/writing/result/${id}`;
+}
+
+const HEADERS = { "x-learner-profile-id": LEARNER_PROFILE_ID };
+
+function scoredRow(overrides: Record<string, unknown> = {}) {
+	return {
+		id: SESSION_ID,
+		status: "scored",
+		exam_type: "toefl_ibt",
+		word_count: 312,
+		overall_band_score: "6.50", // pg returns NUMERIC as string
+		cefr_level: "B2",
+		calibration_version: "v1.0-launch",
+		submitted_at: new Date("2026-07-08T10:00:00Z"),
+		scored_at: new Date("2026-07-08T10:00:05Z"),
+		category_1_name: "Development",
+		category_1_score: "6.50",
+		category_1_weight: "0.333",
+		category_1_feedback: "Well developed.",
+		category_2_name: "Organization",
+		category_2_score: "6.00",
+		category_2_weight: "0.333",
+		category_2_feedback: "Clear structure.",
+		category_3_name: "Language Use",
+		category_3_score: "7.00",
+		category_3_weight: "0.334",
+		category_3_feedback: "Good range.",
+		// TOEFL rubric has 3 categories — slot 4 is NULL-padded in the DB
+		category_4_name: null,
+		category_4_score: null,
+		category_4_weight: null,
+		category_4_feedback: null,
+		grammar_corrections: [{ original: "a", correction: "b", explanation: "c" }],
+		vocabulary_suggestions: [],
+		...overrides,
+	};
+}
+
+describe("GET /api/v1/writing/result/:session_id", () => {
+	it("returns only status while pending", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [{ id: SESSION_ID, status: "pending" }] }]);
+		const app = buildApp({ db, queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual({ session_id: SESSION_ID, status: "pending" });
+	});
+
+	it("returns only status when failed", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [{ id: SESSION_ID, status: "failed" }] }]);
+		const app = buildApp({ db, queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+
+		expect(res.json()).toEqual({ session_id: SESSION_ID, status: "failed" });
+	});
+
+	it("returns the full result when scored, keeping NUMERICs as strings and dropping the NULL 4th category", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [scoredRow()] }]);
+		const app = buildApp({ db, queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json();
+		expect(body.status).toBe("scored");
+		expect(body.overall_band_score).toBe("6.50");
+		expect(body.cefr_level).toBe("B2");
+		expect(body.calibration_version).toBe("v1.0-launch");
+		expect(body.categories).toHaveLength(3);
+		expect(body.categories[0]).toEqual({
+			name: "Development",
+			score: "6.50",
+			weight: "0.333",
+			feedback: "Well developed.",
+		});
+		expect(body.grammar_corrections).toHaveLength(1);
+		expect(body.submitted_at).toBe("2026-07-08T10:00:00.000Z");
+	});
+
+	it("checks ownership in the query (session id + learner id)", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [] }]);
+		const app = buildApp({ db, queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+
+		expect(res.statusCode).toBe(404);
+		const select = db.calls.find((c) => c.text.includes("FROM writing_sessions"));
+		expect(select?.params).toEqual([SESSION_ID, LEARNER_PROFILE_ID]);
+	});
+
+	it("returns a 404 envelope for an unknown or foreign session", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [] }]);
+		const app = buildApp({ db, queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+
+		expect(res.statusCode).toBe(404);
+		expect(res.json()).toEqual({
+			error: { code: "NOT_FOUND", message: "writing session not found" },
+		});
+	});
+
+	it("rejects a non-UUID session_id param with a 400 envelope", async () => {
+		const app = buildApp({ db: makeFakeDb(), queue: makeFakeQueue() });
+
+		const res = await app.inject({ method: "GET", url: resultUrl("nope"), headers: HEADERS });
+
+		expect(res.statusCode).toBe(400);
+		expect(res.json().error.code).toBe("VALIDATION_ERROR");
+		expect(res.json().error.field).toBe("session_id");
+	});
+});
