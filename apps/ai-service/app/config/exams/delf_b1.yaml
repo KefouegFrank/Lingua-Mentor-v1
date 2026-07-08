@@ -1,3 +1,61 @@
-# Exam definition for delf_b1. Fill in: sections, timing, scoring rubric reference,
-# accent targets (per Master PRD), pass/readiness thresholds.
+# DELF B1 — Production Écrite rubric (Master PRD §8.2: Cohérence, Correction
+# grammaticale, Richesse lexicale, Pertinence — 4 × 25%).
+# Scored on the unified 0–9 band scale for cross-exam display (PRD §21.2);
+# CEFR thresholds parameterised per §8.1 (a DELF B1 pass sits at B1).
 exam_id: delf_b1
+language: fr
+display_name: DELF B1
+
+writing:
+  task_name: Production Écrite (essai / lettre)
+  score_scale: { min: 0.0, max: 9.0, increment: 0.5 }
+  rubric_categories:
+    - key: pertinence
+      name: Pertinence de la réponse
+      weight: 0.25
+      description: >
+        La production respecte-t-elle la consigne (type de texte, thème,
+        longueur) ? Les idées sont-elles pertinentes et développées ?
+      band_descriptors:
+        "5": Respecte partiellement la consigne; idées peu développées ou parfois hors sujet.
+        "6": Respecte la consigne dans l'ensemble; idées pertinentes mais inégalement développées.
+        "7": Respecte pleinement la consigne; idées pertinentes, claires et développées.
+        "8": Traite le sujet avec aisance; idées riches, nuancées et bien illustrées.
+    - key: coherence
+      name: Cohérence & cohésion
+      weight: 0.25
+      description: >
+        Le texte est-il organisé logiquement ? Les connecteurs sont-ils
+        utilisés de façon appropriée et variée ?
+      band_descriptors:
+        "5": Organisation simple; enchaînements parfois maladroits; connecteurs élémentaires répétés.
+        "6": Texte globalement cohérent; progression visible; connecteurs simples utilisés correctement.
+        "7": Organisation claire; bonne progression; connecteurs variés et appropriés.
+        "8": Structure très maîtrisée; transitions naturelles; grande aisance dans l'articulation des idées.
+    - key: richesse_lexicale
+      name: Richesse lexicale
+      weight: 0.25
+      description: >
+        Le vocabulaire est-il varié et précis pour le niveau ? Les erreurs de
+        choix lexical ou d'orthographe gênent-elles la compréhension ?
+      band_descriptors:
+        "5": Vocabulaire limité; répétitions fréquentes; erreurs qui gênent parfois la lecture.
+        "6": Vocabulaire suffisant pour le sujet; quelques imprécisions sans gêner la compréhension.
+        "7": Bon éventail lexical; expressions moins courantes utilisées à bon escient; erreurs rares.
+        "8": Lexique riche et précis; nuances exprimées avec naturel; erreurs très rares.
+    - key: correction_grammaticale
+      name: Correction grammaticale
+      weight: 0.25
+      description: >
+        Les structures (temps, accords, syntaxe) sont-elles variées et
+        maîtrisées ? Les erreurs entravent-elles la communication ?
+      band_descriptors:
+        "5": Structures simples globalement correctes; erreurs fréquentes dans les formes complexes.
+        "6": Bon contrôle des structures courantes; erreurs occasionnelles sans gêner le sens.
+        "7": Structures variées bien maîtrisées; erreurs peu fréquentes et non systématiques.
+        "8": Grande correction grammaticale; phrases complexes maîtrisées; erreurs exceptionnelles.
+  cefr_mapping:
+    - { cefr: A2, min_score: 3.0 }
+    - { cefr: B1, min_score: 4.5 }
+    - { cefr: B2, min_score: 5.5 }
+    - { cefr: C1, min_score: 7.0 }

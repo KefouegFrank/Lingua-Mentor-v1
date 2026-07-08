@@ -1,1 +1,1 @@
-"""arq task: srs_batch_generation_task."""
+"""BullMQ processor: srs_batch_generation."""

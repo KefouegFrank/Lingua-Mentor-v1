@@ -16,7 +16,7 @@ read that before adding new top-level folders or renaming anything.
       frontend/       Next.js 14 PWA
       api-gateway/     Node.js / Fastify — REST, SSE, voice WebSocket
       ai-service/      Python / FastAPI — the five AI engines
-      worker/          Python / arq — background jobs on Redis
+      worker/          Python / BullMQ consumer — background jobs on Redis
     packages/
       shared-types/    TS types shared between frontend and api-gateway
       shared-schemas/  zod schemas shared between frontend and api-gateway

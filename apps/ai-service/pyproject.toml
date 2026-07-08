@@ -6,12 +6,24 @@ description = "LinguaMentor AI orchestration service — the five engines"
 [tool.poetry.dependencies]
 python = "^3.12"
 fastapi = "^0.115"
+uvicorn = "^0.34"       # ASGI server — Dockerfile CMD runs it
 asyncpg = "^0.29"       # runtime DB queries — see app/db/repositories/
 sqlalchemy = "^2.0"     # models are ORM-only, for Alembic autogenerate — see app/db/models/
 alembic = "^1.13"
 pydantic = "^2.9"
-arq = "^0.26"           # only used if this service also enqueues; worker/ owns the consumers
+pydantic-settings = "^2.6"
+httpx = "^0.28"         # outbound LLM/ASR/TTS provider calls
+pyyaml = "^6.0"         # exam definitions in app/config/exams/ are YAML, not code
+greenlet = "^3.1"       # required by SQLAlchemy async engine (Alembic migrations)
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.25"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

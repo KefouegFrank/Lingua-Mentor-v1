@@ -1,1 +1,21 @@
-"""writing_evaluation engine — see docs/prd for the full spec."""
+"""Writing Evaluation Engine (Master PRD §21) — public surface."""
+
+from app.engines.writing_evaluation.engine import (
+    EvaluationError,
+    compute_overall_band,
+    evaluate_essay,
+)
+from app.engines.writing_evaluation.exam_config import (
+    UnknownExamError,
+    load_exam_config,
+)
+from app.engines.writing_evaluation.schemas import WritingEvaluationResult
+
+__all__ = [
+    "EvaluationError",
+    "UnknownExamError",
+    "WritingEvaluationResult",
+    "compute_overall_band",
+    "evaluate_essay",
+    "load_exam_config",
+]

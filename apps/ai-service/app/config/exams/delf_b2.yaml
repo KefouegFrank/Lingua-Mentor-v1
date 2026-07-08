@@ -1,3 +1,61 @@
-# Exam definition for delf_b2. Fill in: sections, timing, scoring rubric reference,
-# accent targets (per Master PRD), pass/readiness thresholds.
+# DELF B2 — Production Écrite rubric (Master PRD §8.2 / §21.2: Pertinence,
+# Cohérence & cohésion, Richesse lexicale, Correction grammaticale — 4 × 25%).
+# B2 expects argumentation (prise de position argumentée), so descriptors
+# emphasise argumentative development, unlike DELF B1's descriptive register.
 exam_id: delf_b2
+language: fr
+display_name: DELF B2
+
+writing:
+  task_name: Production Écrite (prise de position argumentée)
+  score_scale: { min: 0.0, max: 9.0, increment: 0.5 }
+  rubric_categories:
+    - key: pertinence
+      name: Pertinence de la réponse
+      weight: 0.25
+      description: >
+        La prise de position est-elle claire et argumentée conformément à la
+        consigne ? Les arguments sont-ils développés et illustrés d'exemples ?
+      band_descriptors:
+        "5": Position discernable mais argumentation superficielle; exemples rares ou peu pertinents.
+        "6": Position claire; arguments pertinents mais inégalement développés; quelques exemples.
+        "7": Argumentation construite et convaincante; arguments développés et illustrés.
+        "8": Argumentation nuancée et persuasive; excellente maîtrise du registre et du destinataire.
+    - key: coherence
+      name: Cohérence & cohésion
+      weight: 0.25
+      description: >
+        Le texte suit-il un plan argumentatif logique (introduction,
+        développement, conclusion) avec des articulations variées ?
+      band_descriptors:
+        "5": Plan sommaire; articulations répétitives; progression parfois difficile à suivre.
+        "6": Plan visible et progression globalement claire; connecteurs corrects mais peu variés.
+        "7": Plan structuré; enchaînements fluides; connecteurs variés et bien employés.
+        "8": Architecture argumentative maîtrisée; transitions élégantes; densité sans confusion.
+    - key: richesse_lexicale
+      name: Richesse lexicale
+      weight: 0.25
+      description: >
+        Le lexique permet-il d'argumenter avec précision et nuance ?
+        Les périphrases compensent-elles les lacunes sans gêner la lecture ?
+      band_descriptors:
+        "5": Lexique courant suffisant mais peu de précision argumentative; répétitions notables.
+        "6": Bonne gamme lexicale; quelques imprécisions ou calques sans gêner la compréhension.
+        "7": Lexique étendu et précis; reformulations habiles; erreurs rares.
+        "8": Grande richesse et précision; nuances et registres maîtrisés; erreurs exceptionnelles.
+    - key: correction_grammaticale
+      name: Correction grammaticale
+      weight: 0.25
+      description: >
+        Les structures complexes (subordination, subjonctif, connecteurs
+        logiques) sont-elles maîtrisées ? Le degré de contrôle est-il élevé ?
+      band_descriptors:
+        "5": Contrôle correct des structures simples; erreurs fréquentes dès que la phrase se complexifie.
+        "6": Assez bon contrôle; quelques erreurs sur les structures complexes, sens toujours clair.
+        "7": Bon contrôle des structures complexes; erreurs peu fréquentes, souvent auto-corrigées.
+        "8": Excellent contrôle grammatical; complexité syntaxique maîtrisée; erreurs très rares.
+  cefr_mapping:
+    - { cefr: B1, min_score: 4.5 }
+    - { cefr: B2, min_score: 5.5 }
+    - { cefr: C1, min_score: 7.0 }
+    - { cefr: C2, min_score: 8.5 }

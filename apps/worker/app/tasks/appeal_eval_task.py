@@ -1,1 +1,1 @@
-"""arq task: appeal_eval_task."""
+"""BullMQ processor: appeal_eval."""

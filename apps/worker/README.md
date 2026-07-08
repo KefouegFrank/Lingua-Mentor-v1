@@ -1,6 +1,9 @@
 # worker
 
-Python / arq background job consumer, backed by Redis. Handles long-running
+Python BullMQ background job consumer, backed by Redis. Uses the official
+`bullmq` Python client so it consumes the exact queue format the Node
+producer in `api-gateway/src/queue/` writes (per ADR 0001 §5 — this service
+is a BullMQ consumer). Handles long-running
 work that shouldn't block a request/response cycle or a voice turn: essay
 scoring pipeline, appeal re-evaluation, nightly SRS batch generation,
 calibration recompute.

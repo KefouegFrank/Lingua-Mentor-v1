@@ -3,4 +3,4 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN pip install poetry && poetry install --no-root
 COPY . .
-CMD ["poetry", "run", "arq", "app.worker_settings.WorkerSettings"]
+CMD ["poetry", "run", "python", "-m", "app.main"]

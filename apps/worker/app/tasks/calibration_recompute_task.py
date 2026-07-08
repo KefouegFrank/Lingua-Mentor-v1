@@ -1,1 +1,1 @@
-"""arq task: calibration_recompute_task."""
+"""BullMQ processor: calibration_recompute."""

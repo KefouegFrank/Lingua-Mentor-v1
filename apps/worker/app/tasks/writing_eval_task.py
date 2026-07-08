@@ -1,1 +1,1 @@
-"""arq task: writing_eval_task."""
+"""BullMQ processor: writing_eval."""

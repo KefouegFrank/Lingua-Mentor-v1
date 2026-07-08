@@ -1,12 +1,16 @@
 [tool.poetry]
 name = "worker"
 version = "0.1.0"
-description = "LinguaMentor background job worker — arq on Redis"
+description = "LinguaMentor background job worker — BullMQ consumer on Redis"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-arq = "^0.26"
+# Official Python BullMQ client (taskforce.sh) — wire-compatible with the
+# Node producer in api-gateway/src/queue/. Chosen over arq per ADR 0001 §5,
+# which names this service a BullMQ consumer.
+bullmq = "^2.15"
 asyncpg = "^0.29"
+httpx = "^0.28"         # calls ai-service internal endpoints; engines live there, not here
 
 [build-system]
 requires = ["poetry-core"]

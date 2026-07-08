@@ -1,3 +1,51 @@
-# Exam definition for toefl_ibt. Fill in: sections, timing, scoring rubric reference,
-# accent targets (per Master PRD), pass/readiness thresholds.
+# TOEFL iBT — Independent Writing rubric (Master PRD §5.2: 3 categories at
+# equal weight, mirroring the official ETS rubric — hence 3 categories here,
+# not 4; the breakdown schema leaves slot 4 NULL for this exam).
+# Scores are produced on the unified 0–9 band scale (PRD §21.2) and mapped
+# to CEFR with TOEFL-specific thresholds.
 exam_id: toefl_ibt
+language: en
+display_name: TOEFL iBT
+
+writing:
+  task_name: Independent Writing (essay)
+  score_scale: { min: 0.0, max: 9.0, increment: 0.5 }
+  rubric_categories:
+    - key: development
+      name: Development
+      weight: 0.334
+      description: >
+        Quality and depth of ideas, strength of argument, relevance and
+        sufficiency of supporting detail and examples.
+      band_descriptors:
+        "5": Ideas present but unevenly developed; support is thin, generic or partially relevant; argument may drift from the question.
+        "6": Generally well-developed ideas with adequate support; some points less elaborated; occasional redundancy.
+        "7": Well-developed ideas with relevant, sufficient explanations and examples; clear argumentative thread.
+        "8": Fully developed, insightful ideas; compelling and well-chosen support throughout; unified argument.
+    - key: organization
+      name: Organization
+      weight: 0.333
+      description: >
+        Logical structure, paragraph development, unity, progression and
+        transitional coherence.
+      band_descriptors:
+        "5": Basic structure discernible but connections between ideas sometimes unclear; weak paragraphing or abrupt transitions.
+        "6": Clear overall organisation; occasional lapses in unity or progression; transitions mostly effective.
+        "7": Well-organised with clear progression; effective paragraphing and transitions with rare lapses.
+        "8": Tightly organised and unified; ideas progress naturally; skilful, unobtrusive transitions.
+    - key: language_use
+      name: Language Use
+      weight: 0.333
+      description: >
+        Range and accuracy of vocabulary and grammar; variety of sentence
+        structures; idiomaticity.
+      band_descriptors:
+        "5": Limited range; noticeable errors in structure or word form that occasionally obscure meaning.
+        "6": Adequate range; some errors in structure, word choice or idiom that rarely obscure meaning.
+        "7": Good range and variety; minor lexical or grammatical errors that do not interfere with meaning.
+        "8": Wide range used with fluency, precision and consistent accuracy; near-idiomatic control.
+  cefr_mapping: # PRD §7.3 TOEFL row, converted onto the unified band scale
+    - { cefr: B1, min_score: 4.5 }
+    - { cefr: B2, min_score: 5.5 }
+    - { cefr: C1, min_score: 7.0 }
+    - { cefr: C2, min_score: 8.5 }

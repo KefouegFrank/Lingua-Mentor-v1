@@ -1,1 +1,1 @@
-"""Optional local entry point for running the worker outside `arq` CLI directly."""
+"""Worker entry point — starts one BullMQ Worker per queue in the registry."""

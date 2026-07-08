@@ -1,3 +1,62 @@
-# Exam definition for ielts_academic. Fill in: sections, timing, scoring rubric reference,
-# accent targets (per Master PRD), pass/readiness thresholds.
+# IELTS Academic — Writing Task 2 rubric (Master PRD §8.2, §21.2).
+# Descriptor language condensed from the public IELTS band descriptors;
+# tuned during Phase 0 calibration — edit descriptors/anchors here, never
+# add per-exam branching in engine code (conventions doc §8).
 exam_id: ielts_academic
+language: en
+display_name: IELTS Academic
+
+writing:
+  task_name: Writing Task 2 (essay)
+  score_scale: { min: 0.0, max: 9.0, increment: 0.5 }
+  rubric_categories:
+    - key: task_response
+      name: Task Response
+      weight: 0.25
+      description: >
+        Does the essay fully address all parts of the task? Are ideas
+        relevant, clear, extended and well-supported?
+      band_descriptors:
+        "5": Addresses the task only partially; format may be inappropriate in places; ideas limited and insufficiently developed; some irrelevant detail.
+        "6": Addresses all parts of the task although some parts more fully than others; position is relevant but conclusions may be unclear or repetitive.
+        "7": Addresses all parts of the task; presents a clear position throughout; main ideas extended and supported, though there may be a tendency to over-generalise.
+        "8": Sufficiently addresses all parts of the task; well-developed response with relevant, extended and supported ideas.
+    - key: coherence_cohesion
+      name: Coherence & Cohesion
+      weight: 0.25
+      description: >
+        Is the essay logically organised? Is paragraphing appropriate? Are
+        cohesive devices used naturally rather than mechanically?
+      band_descriptors:
+        "5": Some organisation but lacks overall progression; cohesive devices inadequate, inaccurate or over-used; repetitive through lack of referencing.
+        "6": Arranges information coherently with clear overall progression; cohesive devices sometimes faulty or mechanical; referencing not always clear.
+        "7": Logically organises information; clear progression throughout; range of cohesive devices used appropriately with occasional under-/over-use.
+        "8": Sequences information and ideas logically; manages all aspects of cohesion well; paragraphing sufficient and appropriate.
+    - key: lexical_resource
+      name: Lexical Resource
+      weight: 0.25
+      description: >
+        Is there variety and precision in vocabulary? Are word choice,
+        collocation and spelling errors present, and do they impede meaning?
+      band_descriptors:
+        "5": Limited range; noticeable errors in spelling or word formation that may cause difficulty for the reader.
+        "6": Adequate range for the task; attempts less common vocabulary with some inaccuracy; some spelling/word-choice errors that do not impede communication.
+        "7": Sufficient range for some flexibility and precision; uses less common items with some awareness of style and collocation; occasional errors.
+        "8": Wide range used fluently and flexibly to convey precise meanings; skilfully uses uncommon items; only rare errors in word choice or spelling.
+    - key: grammatical_range_accuracy
+      name: Grammatical Range & Accuracy
+      weight: 0.25
+      description: >
+        Is there a range of simple and complex structures? Are errors frequent
+        or serious enough to impede communication?
+      band_descriptors:
+        "5": Limited range of structures; attempts complex sentences but these tend to be less accurate; frequent errors that can cause difficulty.
+        "6": Mix of simple and complex sentence forms; some errors in grammar and punctuation but they rarely reduce communication.
+        "7": Variety of complex structures; frequent error-free sentences; good control with a few errors persisting.
+        "8": Wide range of structures; majority of sentences error-free; only very occasional errors or inappropriacies.
+  cefr_mapping: # PRD §7.3 — exam-parameterised thresholds (§8.1)
+    - { cefr: A2, min_score: 3.0 }
+    - { cefr: B1, min_score: 4.5 }
+    - { cefr: B2, min_score: 5.5 }
+    - { cefr: C1, min_score: 7.0 }
+    - { cefr: C2, min_score: 8.5 }

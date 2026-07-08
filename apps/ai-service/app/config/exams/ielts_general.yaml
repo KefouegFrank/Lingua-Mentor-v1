@@ -1,3 +1,61 @@
-# Exam definition for ielts_general. Fill in: sections, timing, scoring rubric reference,
-# accent targets (per Master PRD), pass/readiness thresholds.
+# IELTS General Training — Writing Task 2 rubric (Phase 0 Brief §2.1 includes
+# it in calibration scope). Same four public band-descriptor categories as
+# Academic; Task Achievement replaces Task Response wording for the GT paper.
 exam_id: ielts_general
+language: en
+display_name: IELTS General Training
+
+writing:
+  task_name: Writing Task 2 (essay)
+  score_scale: { min: 0.0, max: 9.0, increment: 0.5 }
+  rubric_categories:
+    - key: task_achievement
+      name: Task Achievement
+      weight: 0.25
+      description: >
+        Does the response address all parts of the prompt with relevant,
+        developed ideas appropriate to the General Training paper?
+      band_descriptors:
+        "5": Addresses the task only partially; development limited; some irrelevant or repetitive detail.
+        "6": Addresses all parts although unevenly; position relevant; conclusions may be unclear.
+        "7": Addresses all parts; clear position throughout; ideas extended and supported.
+        "8": All parts sufficiently addressed; well-developed, relevant, extended and supported ideas.
+    - key: coherence_cohesion
+      name: Coherence & Cohesion
+      weight: 0.25
+      description: >
+        Logical organisation, appropriate paragraphing, natural rather than
+        mechanical use of cohesive devices.
+      band_descriptors:
+        "5": Some organisation without overall progression; cohesive devices inadequate or over-used.
+        "6": Coherent arrangement with clear progression; devices sometimes faulty or mechanical.
+        "7": Logical organisation and clear progression; devices used appropriately with minor lapses.
+        "8": Logical sequencing; cohesion managed well; sufficient, appropriate paragraphing.
+    - key: lexical_resource
+      name: Lexical Resource
+      weight: 0.25
+      description: >
+        Variety and precision of vocabulary; impact of word-choice and
+        spelling errors on the reader.
+      band_descriptors:
+        "5": Limited range; noticeable errors causing some difficulty for the reader.
+        "6": Adequate range; attempts at less common items with some inaccuracy; errors don't impede.
+        "7": Sufficient range for flexibility and precision; style/collocation awareness; occasional errors.
+        "8": Wide, fluent, flexible range; skilful use of uncommon items; rare errors.
+    - key: grammatical_range_accuracy
+      name: Grammatical Range & Accuracy
+      weight: 0.25
+      description: >
+        Range of simple and complex structures; frequency and severity of
+        errors relative to communication.
+      band_descriptors:
+        "5": Limited structural range; complex attempts inaccurate; frequent errors cause difficulty.
+        "6": Mix of simple and complex forms; some errors that rarely reduce communication.
+        "7": Variety of complex structures; frequent error-free sentences; good control.
+        "8": Wide range; majority error-free; only very occasional errors.
+  cefr_mapping:
+    - { cefr: A2, min_score: 3.0 }
+    - { cefr: B1, min_score: 4.5 }
+    - { cefr: B2, min_score: 5.5 }
+    - { cefr: C1, min_score: 7.0 }
+    - { cefr: C2, min_score: 8.5 }
