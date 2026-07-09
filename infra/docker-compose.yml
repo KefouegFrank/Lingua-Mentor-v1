@@ -11,8 +11,17 @@ services:
       - redis-data:/data
 
   api-gateway:
-    build: ../apps/api-gateway
+    # Root context, not ../apps/api-gateway — it depends on the workspace
+    # package @lingumentor/shared-schemas, so the build needs to see the
+    # whole monorepo, not just this one app's directory. See the Dockerfile.
+    build:
+      context: ..
+      dockerfile: apps/api-gateway/Dockerfile
     env_file: ../apps/api-gateway/.env
+    volumes:
+      # JWT keys (scripts/generate-jwt-keys.sh) are mounted, never baked
+      # into the image.
+      - ../apps/api-gateway/keys:/app/keys:ro
     ports:
       - "3000:3000"
     depends_on:

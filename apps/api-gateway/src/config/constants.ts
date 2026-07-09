@@ -17,3 +17,23 @@ export const WRITING_EVAL_JOB_OPTIONS = {
 	removeOnComplete: { age: 3_600, count: 1_000 },
 	removeOnFail: false,
 } as const;
+
+// --- Auth ---
+// Named after the platform, not the deploy environment — verifiers reject
+// tokens from any other issuer even if they were signed with the right key.
+export const JWT_ISSUER = "linguamentor";
+
+// Short-lived on purpose: a leaked access token self-expires fast. The
+// refresh token is what actually carries session length.
+export const ACCESS_TOKEN_TTL = "15m";
+export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+
+// The cookie is scoped to /api/v1/auth so it's never sent on unrelated
+// requests (writing submissions, dashboard reads, etc.) — only the
+// endpoints that need to rotate or revoke it ever see it.
+export const REFRESH_COOKIE_NAME = "lm_refresh";
+export const REFRESH_COOKIE_PATH = "/api/v1/auth";
+
+// Redis key prefix for the "this refresh token is still live" marker —
+// see src/modules/auth/auth.service.ts for the rotation logic.
+export const REFRESH_KEY_PREFIX = "refresh:";

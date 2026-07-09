@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildApp } from "../src/app";
-import { LEARNER_PROFILE_ID, SESSION_ID, makeFakeDb, makeFakeQueue } from "./helpers";
+import {
+	LEARNER_PROFILE_ID,
+	SESSION_ID,
+	bearerHeader,
+	buildTestApp,
+	makeFakeDb,
+	makeFakeQueue,
+	signTestAccessToken,
+} from "./helpers";
 
 const VALID_BODY = {
 	exam_type: "ielts_academic",
@@ -9,19 +16,22 @@ const VALID_BODY = {
 	essay_text: "In recent years the debate has intensified. I believe that both views have merit.",
 };
 
-function appWith(db = makeFakeDb([{ match: "INSERT INTO writing_sessions", rows: [{ id: SESSION_ID }] }]), queue = makeFakeQueue()) {
-	const app = buildApp({ db, queue });
-	return { app, db, queue };
+async function appWith(
+	db = makeFakeDb([{ match: "INSERT INTO writing_sessions", rows: [{ id: SESSION_ID }] }]),
+	queue = makeFakeQueue(),
+) {
+	return buildTestApp({ db, queue });
 }
 
 describe("POST /api/v1/writing/submit", () => {
 	it("returns 202 with session_id, inserts the row with computed word_count, and enqueues jobId=session_id", async () => {
-		const { app, db, queue } = appWith();
+		const { app, db, queue, jwt } = await appWith();
+		const token = await signTestAccessToken(jwt);
 
 		const res = await app.inject({
 			method: "POST",
 			url: "/api/v1/writing/submit",
-			headers: { "x-learner-profile-id": LEARNER_PROFILE_ID },
+			headers: bearerHeader(token),
 			payload: VALID_BODY,
 		});
 
@@ -42,42 +52,37 @@ describe("POST /api/v1/writing/submit", () => {
 		expect(queue.jobs[0].data).toEqual({ session_id: SESSION_ID, exam_type: "ielts_academic" });
 	});
 
-	it("rejects a missing identity header with a 400 envelope naming the field", async () => {
-		const { app } = appWith();
+	it("rejects a request with no bearer token", async () => {
+		const { app } = await appWith();
 
 		const res = await app.inject({ method: "POST", url: "/api/v1/writing/submit", payload: VALID_BODY });
 
-		expect(res.statusCode).toBe(400);
-		expect(res.json()).toEqual({
-			error: {
-				code: "VALIDATION_ERROR",
-				message: "x-learner-profile-id header must be a UUID",
-				field: "x-learner-profile-id",
-			},
-		});
+		expect(res.statusCode).toBe(401);
+		expect(res.json().error.code).toBe("UNAUTHORIZED");
 	});
 
-	it("rejects a non-UUID identity header", async () => {
-		const { app } = appWith();
+	it("rejects a garbage bearer token", async () => {
+		const { app } = await appWith();
 
 		const res = await app.inject({
 			method: "POST",
 			url: "/api/v1/writing/submit",
-			headers: { "x-learner-profile-id": "not-a-uuid" },
+			headers: bearerHeader("not-a-real-token"),
 			payload: VALID_BODY,
 		});
 
-		expect(res.statusCode).toBe(400);
-		expect(res.json().error.code).toBe("VALIDATION_ERROR");
+		expect(res.statusCode).toBe(401);
+		expect(res.json().error.code).toBe("UNAUTHORIZED");
 	});
 
 	it("rejects a body missing essay_text with a 400 envelope naming the field", async () => {
-		const { app, queue } = appWith();
+		const { app, queue, jwt } = await appWith();
+		const token = await signTestAccessToken(jwt);
 
 		const res = await app.inject({
 			method: "POST",
 			url: "/api/v1/writing/submit",
-			headers: { "x-learner-profile-id": LEARNER_PROFILE_ID },
+			headers: bearerHeader(token),
 			payload: { exam_type: "ielts_academic", prompt_text: "p" },
 		});
 
@@ -90,12 +95,13 @@ describe("POST /api/v1/writing/submit", () => {
 	it("marks the session failed and returns a 500 envelope when enqueue throws", async () => {
 		const db = makeFakeDb([{ match: "INSERT INTO writing_sessions", rows: [{ id: SESSION_ID }] }]);
 		const queue = makeFakeQueue({ failWith: new Error("redis down") });
-		const app = buildApp({ db, queue });
+		const { app, jwt } = await appWith(db, queue);
+		const token = await signTestAccessToken(jwt);
 
 		const res = await app.inject({
 			method: "POST",
 			url: "/api/v1/writing/submit",
-			headers: { "x-learner-profile-id": LEARNER_PROFILE_ID },
+			headers: bearerHeader(token),
 			payload: VALID_BODY,
 		});
 

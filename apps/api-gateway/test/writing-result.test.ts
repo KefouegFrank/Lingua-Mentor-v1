@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { buildApp } from "../src/app";
-import { LEARNER_PROFILE_ID, SESSION_ID, makeFakeDb, makeFakeQueue } from "./helpers";
+import {
+	LEARNER_PROFILE_ID,
+	SESSION_ID,
+	bearerHeader,
+	buildTestApp,
+	makeFakeDb,
+	signTestAccessToken,
+} from "./helpers";
 
 function resultUrl(id = SESSION_ID) {
 	return `/api/v1/writing/result/${id}`;
 }
-
-const HEADERS = { "x-learner-profile-id": LEARNER_PROFILE_ID };
 
 function scoredRow(overrides: Record<string, unknown> = {}) {
 	return {
@@ -46,9 +50,10 @@ function scoredRow(overrides: Record<string, unknown> = {}) {
 describe("GET /api/v1/writing/result/:session_id", () => {
 	it("returns only status while pending", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [{ id: SESSION_ID, status: "pending" }] }]);
-		const app = buildApp({ db, queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
 
 		expect(res.statusCode).toBe(200);
 		expect(res.json()).toEqual({ session_id: SESSION_ID, status: "pending" });
@@ -56,18 +61,20 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 
 	it("returns only status when failed", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [{ id: SESSION_ID, status: "failed" }] }]);
-		const app = buildApp({ db, queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
 
 		expect(res.json()).toEqual({ session_id: SESSION_ID, status: "failed" });
 	});
 
 	it("returns the full result when scored, keeping NUMERICs as strings and dropping the NULL 4th category", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [scoredRow()] }]);
-		const app = buildApp({ db, queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
 
 		expect(res.statusCode).toBe(200);
 		const body = res.json();
@@ -86,11 +93,12 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 		expect(body.submitted_at).toBe("2026-07-08T10:00:00.000Z");
 	});
 
-	it("checks ownership in the query (session id + learner id)", async () => {
+	it("checks ownership in the query (session id + learner id from the JWT)", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [] }]);
-		const app = buildApp({ db, queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
 
 		expect(res.statusCode).toBe(404);
 		const select = db.calls.find((c) => c.text.includes("FROM writing_sessions"));
@@ -99,9 +107,10 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 
 	it("returns a 404 envelope for an unknown or foreign session", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [] }]);
-		const app = buildApp({ db, queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl(), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
 
 		expect(res.statusCode).toBe(404);
 		expect(res.json()).toEqual({
@@ -110,12 +119,22 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 	});
 
 	it("rejects a non-UUID session_id param with a 400 envelope", async () => {
-		const app = buildApp({ db: makeFakeDb(), queue: makeFakeQueue() });
+		const { app, jwt } = await buildTestApp();
+		const token = await signTestAccessToken(jwt);
 
-		const res = await app.inject({ method: "GET", url: resultUrl("nope"), headers: HEADERS });
+		const res = await app.inject({ method: "GET", url: resultUrl("nope"), headers: bearerHeader(token) });
 
 		expect(res.statusCode).toBe(400);
 		expect(res.json().error.code).toBe("VALIDATION_ERROR");
 		expect(res.json().error.field).toBe("session_id");
+	});
+
+	it("rejects a request with no bearer token", async () => {
+		const { app } = await buildTestApp();
+
+		const res = await app.inject({ method: "GET", url: resultUrl() });
+
+		expect(res.statusCode).toBe(401);
+		expect(res.json().error.code).toBe("UNAUTHORIZED");
 	});
 });

@@ -30,7 +30,10 @@ for ex in "$ROOT"/apps/*/.env.example; do
 	fi
 done
 
-echo "4) Starting Redis via docker-compose"
+echo "4) Generating dev JWT keys (if missing)"
+bash "$ROOT/scripts/generate-jwt-keys.sh"
+
+echo "5) Starting Redis via docker-compose"
 docker compose -f "$ROOT/infra/docker-compose.yml" up -d redis || true
 
 echo "Bootstrap complete. Next steps: edit apps/*/.env files as needed and run frontend and api-gateway dev scripts."
