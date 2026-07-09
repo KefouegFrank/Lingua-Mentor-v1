@@ -5,6 +5,7 @@ updates or deletes existing baselines.
 """
 
 from datetime import datetime
+from decimal import Decimal
 
 import asyncpg
 
@@ -39,6 +40,9 @@ async def insert_baseline(
     calibration_date: datetime,
     signed_off_by: str | None,
 ) -> None:
+    # NUMERIC columns want Decimal, not float — asyncpg rejects float for
+    # numeric params. Route via str() so the value lands exactly as computed,
+    # with no binary-float artifact (the same no-drift discipline as scores).
     await conn.execute(
         """
         INSERT INTO calibration_baselines (
@@ -51,10 +55,10 @@ async def insert_baseline(
         calibration_version,
         exam_type,
         sample_count,
-        overall_pearson,
+        Decimal(str(overall_pearson)),
         category_pearson,
         human_examiner_count,
-        inter_rater_kappa,
+        None if inter_rater_kappa is None else Decimal(str(inter_rater_kappa)),
         calibration_date,
         signed_off_by,
     )

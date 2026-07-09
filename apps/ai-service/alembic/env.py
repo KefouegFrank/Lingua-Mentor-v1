@@ -9,6 +9,7 @@ repositories and Alembic.
 import asyncio
 import os
 from logging.config import fileConfig
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from alembic import context
 from sqlalchemy import pool
@@ -31,6 +32,18 @@ def _database_url() -> str:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    # The SQLAlchemy asyncpg dialect rejects libpq's `sslmode`/`channel_binding`
+    # query params (raw asyncpg accepts them, which is why the app's pool works
+    # off the same URL and only Alembic tripped). Translate `sslmode` to the
+    # dialect's own `ssl` and drop `channel_binding`, so a Neon URL migrates as-is.
+    parts = urlsplit(url)
+    if parts.query:
+        params = dict(parse_qsl(parts.query))
+        sslmode = params.pop("sslmode", None)
+        params.pop("channel_binding", None)
+        if sslmode and "ssl" not in params:
+            params["ssl"] = sslmode
+        url = urlunsplit(parts._replace(query=urlencode(params)))
     return url
 
 
