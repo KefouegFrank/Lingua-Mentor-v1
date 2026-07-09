@@ -7,8 +7,12 @@ import pytest
 
 from app.calibration.harness import (
     CalibrationEssay,
+    CalibrationReport,
+    CefrAgreement,
     build_report,
+    full_phase0_ready,
     load_dataset,
+    pending_gates,
     run_calibration,
     score_dataset,
 )
@@ -30,7 +34,7 @@ def _payload(tr, cc, lr, gra):
     )
 
 
-def _essay(essay_id, human_overall, categories):
+def _essay(essay_id, human_overall, categories, adversarial=False):
     return CalibrationEssay(
         essay_id=essay_id,
         exam_type="ielts_academic",
@@ -38,6 +42,7 @@ def _essay(essay_id, human_overall, categories):
         essay_text="e",
         human_overall=Decimal(human_overall),
         human_categories={k: Decimal(v) for k, v in categories.items()},
+        adversarial=adversarial,
     )
 
 
@@ -118,3 +123,114 @@ def test_load_dataset_reports_bad_line(tmp_path):
     dataset.write_text('{"essay_id": "a"}\n')
     with pytest.raises(ValueError, match="bad.jsonl:1"):
         load_dataset(dataset)
+
+
+# --- Adversarial gate (ADR 0006 §2.1) ------------------------------------
+
+
+async def test_adversarial_overscore_fails_gate():
+    """A gamed essay the AI scores >0.5 band above the human fails the hard gate
+    and is held out of the Pearson correlation."""
+    essays = [
+        _essay("e1", "5.0", HUMAN_CATS[0]),
+        _essay("e2", "7.0", HUMAN_CATS[2]),
+        _essay("gamed", "4.0", HUMAN_CATS[0], adversarial=True),
+    ]
+    provider = FakeProvider(
+        [
+            _payload(5.0, 5.0, 5.0, 5.0),
+            _payload(7.0, 7.0, 7.0, 7.0),
+            _payload(6.0, 6.0, 6.0, 6.0),  # ai 6.0 vs human 4.0 → +2.0 band
+        ]
+    )
+    scores, _ = await score_dataset(provider, essays, model="m", concurrency=1)
+    report = build_report("ielts_academic", scores, 0)
+
+    assert report.sample_count == 2  # adversarial excluded from the correlation
+    assert report.adversarial_count == 1
+    assert report.overall_pearson == pytest.approx(1.0)  # excluded → r stays 1.0
+    assert report.adversarial_gate_passed is False
+    assert [o["essay_id"] for o in report.adversarial_overscored] == ["gamed"]
+    assert report.writing_gates_passed is False  # one hard gate failed
+
+
+async def test_adversarial_within_margin_passes_gate():
+    """Half a band of over-scoring is the tolerance, not a failure."""
+    essays = [
+        _essay("e1", "5.0", HUMAN_CATS[0]),
+        _essay("e2", "7.0", HUMAN_CATS[2]),
+        _essay("gamed", "4.0", HUMAN_CATS[0], adversarial=True),
+    ]
+    provider = FakeProvider(
+        [
+            _payload(5.0, 5.0, 5.0, 5.0),
+            _payload(7.0, 7.0, 7.0, 7.0),
+            _payload(4.5, 4.5, 4.5, 4.5),  # ai 4.5 vs human 4.0 → +0.5, at the margin
+        ]
+    )
+    scores, _ = await score_dataset(provider, essays, model="m", concurrency=1)
+    report = build_report("ielts_academic", scores, 0)
+
+    assert report.adversarial_gate_passed is True
+    assert report.adversarial_overscored == []
+    assert report.writing_gates_passed is True  # pearson + cefr + adversarial all pass
+
+
+# --- Boundary-aware CEFR agreement (ADR 0006 §2.5) -----------------------
+
+
+async def test_cefr_agreement_exact_adjacent_and_far_miss():
+    """Exact and adjacent CEFR matches both count toward the tolerant gate; a
+    multi-level miss does not — and a run with too many far misses fails."""
+    essays = [
+        _essay("exact", "7.0", HUMAN_CATS[2]),  # human C1
+        _essay("adjacent", "6.5", HUMAN_CATS[1]),  # human B2
+        _essay("far", "8.5", HUMAN_CATS[3]),  # human C2
+    ]
+    provider = FakeProvider(
+        [
+            _payload(7.0, 7.0, 7.0, 7.0),  # ai 7.0 → C1 (exact vs C1)
+            _payload(7.0, 7.0, 7.0, 7.0),  # ai 7.0 → C1 (adjacent vs B2)
+            _payload(5.0, 5.0, 5.0, 5.0),  # ai 5.0 → B1 (far vs C2)
+        ]
+    )
+    scores, _ = await score_dataset(provider, essays, model="m", concurrency=1)
+    report = build_report("ielts_academic", scores, 0)
+
+    assert report.cefr_agreement.sample_count == 3
+    assert report.cefr_agreement.exact_rate == pytest.approx(1 / 3)
+    assert report.cefr_agreement.adjacent_or_exact_rate == pytest.approx(2 / 3)
+    assert report.cefr_agreement.gate_passed is False  # 0.667 < 0.90
+    assert report.writing_gates_passed is False
+
+
+# --- Interim iteration budget (ADR 0006 §2.3) ----------------------------
+
+
+def _bare_report(overall_pearson: float) -> CalibrationReport:
+    return CalibrationReport(
+        exam_type="ielts_academic",
+        sample_count=2,
+        failed_count=0,
+        overall_pearson=overall_pearson,
+        category_pearson={},
+        cefr_agreement=CefrAgreement(0, 0.0, 0.0),
+    )
+
+
+def test_gate_status_tiers():
+    assert _bare_report(0.90).gate_status == "PASS"
+    assert _bare_report(0.85).gate_status == "PASS"  # gate is inclusive
+    assert _bare_report(0.80).gate_status == "ITERATE"
+    assert _bare_report(0.75).gate_status == "ITERATE"  # interim gate inclusive
+    assert _bare_report(0.74).gate_status == "STRUCTURAL"
+
+
+# --- Partial-vs-full Phase 0 status (ADR 0006 §2.2) ----------------------
+
+
+def test_wer_gate_pending_means_phase0_not_full():
+    """WER is unbuilt (Phase 2), so a green writing run is never a full Phase 0
+    pass — the manifest surfaces the outstanding gate explicitly."""
+    assert full_phase0_ready() is False
+    assert [g.key for g in pending_gates()] == ["wer_pronunciation"]
