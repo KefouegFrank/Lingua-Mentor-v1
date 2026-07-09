@@ -44,6 +44,21 @@ An untested runbook is a guess wearing documentation's clothes. If a runbook
 describes a recovery or restore procedure, it needs to have actually been
 run once, not just written down as something that should theoretically work.
 
+### `research/`
+Dated evidence that *informs* decisions — external ground truth (how an exam
+board actually scores, what an API actually guarantees), not decisions
+themselves. The split from ADRs is deliberate: an ADR is immutable and never
+goes stale because it only ever claims to describe a decision at a point in
+time; a research file describes *the world as a source reported it* on a date,
+and goes stale the moment that world changes. So research files are dated,
+cite their sources, and are **superseded by a new dated file rather than
+edited in place** when reality moves.
+
+The rule that keeps this honest: if a research file drives a choice, that
+choice belongs in an ADR that *cites* the file — never a "therefore we
+will…" conclusion written into the research file itself. Findings here;
+resolutions in ADRs. See `research/README.md` for the current contents.
+
 ---
 
 ## What does NOT live in this folder
