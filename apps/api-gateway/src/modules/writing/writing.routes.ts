@@ -36,6 +36,7 @@ export default async function writingRoutes(app: FastifyInstance): Promise<void>
 			{ db: app.db, queue: app.writingQueue },
 			session_id,
 			request.user!.learnerProfileId,
+			app.calibrationGateEnforced,
 		);
 		if (!result) {
 			throw new AppError(404, "NOT_FOUND", "writing session not found");

@@ -25,7 +25,13 @@ export interface WritingCategory {
 
 export interface WritingResult {
 	session_id: string;
+	// "pending" | "processing" | "failed" | "scored" | "awaiting_calibration"
 	status: string;
+	// Present on any terminal scored result: whether the band was produced under
+	// an active calibration baseline. False + gate enforced ⇒ band withheld.
+	calibrated?: boolean;
+	// Explains a withheld score (status "awaiting_calibration") to the user.
+	message?: string;
 	exam_type?: string;
 	word_count?: number | null;
 	// NUMERIC columns stay strings end-to-end (pg returns them as strings,
@@ -82,6 +88,7 @@ export async function getWritingResult(
 	deps: WritingDeps,
 	sessionId: string,
 	learnerProfileId: string,
+	enforceCalibrationGate: boolean,
 ): Promise<WritingResult | null> {
 	// Ownership check lives in the WHERE clause: someone else's session id is
 	// indistinguishable from an unknown one (404), leaking nothing.
@@ -106,6 +113,35 @@ export async function getWritingResult(
 		return { session_id: sessionId, status };
 	}
 
+	const submittedAt =
+		row.submitted_at instanceof Date ? row.submitted_at.toISOString() : String(row.submitted_at);
+	const scoredAt =
+		row.scored_at == null
+			? null
+			: row.scored_at instanceof Date
+				? row.scored_at.toISOString()
+				: String(row.scored_at);
+
+	// Phase 0 gate (Calibration Brief §9, PRD §21.3): a band produced without an
+	// active calibration baseline (calibration_version NULL) is not exam-valid.
+	// When the gate is enforced, we withhold the numbers rather than present an
+	// uncalibrated score as if it were trustworthy — the whole point of Phase 0.
+	const calibrated = row.calibration_version != null;
+	if (!calibrated && enforceCalibrationGate) {
+		return {
+			session_id: sessionId,
+			status: "awaiting_calibration",
+			calibrated: false,
+			exam_type: row.exam_type as string,
+			word_count: row.word_count as number | null,
+			submitted_at: submittedAt,
+			scored_at: scoredAt,
+			message:
+				"Your response was evaluated, but AI scoring for this exam has not yet passed " +
+				"Phase 0 calibration, so a band score is withheld.",
+		};
+	}
+
 	const categories: WritingCategory[] = [];
 	for (const n of [1, 2, 3, 4]) {
 		const name = row[`category_${n}_name`];
@@ -122,18 +158,14 @@ export async function getWritingResult(
 	return {
 		session_id: sessionId,
 		status,
+		calibrated,
 		exam_type: row.exam_type as string,
 		word_count: row.word_count as number | null,
 		overall_band_score: row.overall_band_score as string | null,
 		cefr_level: row.cefr_level as string | null,
 		calibration_version: row.calibration_version as string | null,
-		submitted_at: row.submitted_at instanceof Date ? row.submitted_at.toISOString() : String(row.submitted_at),
-		scored_at:
-			row.scored_at == null
-				? null
-				: row.scored_at instanceof Date
-					? row.scored_at.toISOString()
-					: String(row.scored_at),
+		submitted_at: submittedAt,
+		scored_at: scoredAt,
 		categories,
 		grammar_corrections: row.grammar_corrections ?? [],
 		vocabulary_suggestions: row.vocabulary_suggestions ?? [],

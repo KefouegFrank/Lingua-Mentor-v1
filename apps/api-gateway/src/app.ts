@@ -19,6 +19,7 @@ declare module "fastify" {
 		writingQueue: WritingEvalQueue;
 		redis: RedisKv;
 		jwt: JwtStrategy;
+		calibrationGateEnforced: boolean;
 	}
 }
 
@@ -28,6 +29,7 @@ export interface AppOptions {
 	queue?: WritingEvalQueue;
 	redis?: RedisKv;
 	jwt?: JwtStrategy;
+	enforceCalibrationGate?: boolean;
 }
 
 export function buildApp(opts: AppOptions = {}): FastifyInstance {
@@ -45,6 +47,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	let queue = opts.queue;
 	let redis = opts.redis;
 	let jwt = opts.jwt;
+	let enforceCalibrationGate = opts.enforceCalibrationGate;
 	if (!db || !queue || !redis || !jwt) {
 		const env = loadEnv();
 		db = db ?? createPool(env.databaseUrl);
@@ -56,11 +59,15 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 				readFileSync(env.jwtPrivateKeyPath, "utf-8"),
 				readFileSync(env.jwtPublicKeyPath, "utf-8"),
 			);
+		enforceCalibrationGate = enforceCalibrationGate ?? env.enforceCalibrationGate;
 	}
 	app.decorate("db", db);
 	app.decorate("writingQueue", queue);
 	app.decorate("redis", redis);
 	app.decorate("jwt", jwt);
+	// Fail-closed: if nothing set it (e.g. a test that doesn't opt out), the
+	// gate is on — see loadEnv's ENFORCE_CALIBRATION_GATE comment.
+	app.decorate("calibrationGateEnforced", enforceCalibrationGate ?? true);
 
 	app.addHook("onClose", async () => {
 		await app.writingQueue.close?.();

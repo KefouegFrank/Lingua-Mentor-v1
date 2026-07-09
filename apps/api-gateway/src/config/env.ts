@@ -7,6 +7,7 @@ export interface Env {
 	databaseUrl: string;
 	jwtPrivateKeyPath: string;
 	jwtPublicKeyPath: string;
+	enforceCalibrationGate: boolean;
 }
 
 export function loadEnv(): Env {
@@ -27,5 +28,10 @@ export function loadEnv(): Env {
 		databaseUrl,
 		jwtPrivateKeyPath,
 		jwtPublicKeyPath,
+		// Phase 0 gate (Calibration Brief §9): withhold AI band scores produced
+		// without an active calibration baseline. Fail-closed — a safety gate
+		// that defaulted off would ship the exact thing it exists to prevent.
+		// Dev sets ENFORCE_CALIBRATION_GATE=false to see provisional scores.
+		enforceCalibrationGate: process.env.ENFORCE_CALIBRATION_GATE !== "false",
 	};
 }

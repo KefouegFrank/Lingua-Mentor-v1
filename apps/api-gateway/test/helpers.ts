@@ -160,7 +160,9 @@ export async function buildTestApp(
 	const queue = opts.queue ?? makeFakeQueue();
 	const redis = opts.redis ?? makeFakeRedis();
 	const jwt = opts.jwt ?? (await makeTestJwt());
-	const app = buildApp({ db, queue, redis, jwt });
+	// Spread opts first so extra AppOptions (e.g. enforceCalibrationGate) flow
+	// through; the resolved fakes below win over any same-named keys.
+	const app = buildApp({ ...opts, db, queue, redis, jwt });
 	return { app, db, queue, redis, jwt };
 }
 

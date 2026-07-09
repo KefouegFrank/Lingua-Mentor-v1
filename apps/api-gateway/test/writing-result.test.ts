@@ -82,6 +82,7 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 		expect(body.overall_band_score).toBe("6.50");
 		expect(body.cefr_level).toBe("B2");
 		expect(body.calibration_version).toBe("v1.0-launch");
+		expect(body.calibrated).toBe(true);
 		expect(body.categories).toHaveLength(3);
 		expect(body.categories[0]).toEqual({
 			name: "Development",
@@ -91,6 +92,43 @@ describe("GET /api/v1/writing/result/:session_id", () => {
 		});
 		expect(body.grammar_corrections).toHaveLength(1);
 		expect(body.submitted_at).toBe("2026-07-08T10:00:00.000Z");
+	});
+
+	it("withholds the band when the exam is uncalibrated and the gate is enforced (Phase 0)", async () => {
+		const db = makeFakeDb([
+			{ match: "FROM writing_sessions", rows: [scoredRow({ calibration_version: null })] },
+		]);
+		// Gate defaults on (fail-closed) — no enforceCalibrationGate override.
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json();
+		expect(body.status).toBe("awaiting_calibration");
+		expect(body.calibrated).toBe(false);
+		expect(body.overall_band_score).toBeUndefined();
+		expect(body.cefr_level).toBeUndefined();
+		expect(body.categories).toBeUndefined();
+		expect(body.message).toContain("calibration");
+	});
+
+	it("returns a provisional score when uncalibrated but the gate is disabled", async () => {
+		const db = makeFakeDb([
+			{ match: "FROM writing_sessions", rows: [scoredRow({ calibration_version: null })] },
+		]);
+		const { app, jwt } = await buildTestApp({ db, enforceCalibrationGate: false });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json();
+		expect(body.status).toBe("scored");
+		expect(body.calibrated).toBe(false);
+		expect(body.overall_band_score).toBe("6.50");
+		expect(body.categories).toHaveLength(3);
 	});
 
 	it("checks ownership in the query (session id + learner id from the JWT)", async () => {
