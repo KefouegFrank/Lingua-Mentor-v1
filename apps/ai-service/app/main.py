@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.v1.routers import writing_eval
+from app.api.v1.routers import placement, writing_eval
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import close_pool, create_pool
@@ -33,6 +33,7 @@ app = FastAPI(
 register_error_handlers(app)
 
 app.include_router(writing_eval.router, prefix="/api/v1")
+app.include_router(placement.router, prefix="/api/v1")
 
 
 @app.get("/health")

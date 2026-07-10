@@ -1,8 +1,9 @@
 """asyncpg queries for users/learner_profiles — runtime data-access path.
 
-User *writes* (register, login bookkeeping) belong to api-gateway's auth
-module; this service only reads identity/profile state it needs for
-evaluation context (accent target, exam target, CEFR profile).
+*Identity* writes (register, login bookkeeping) belong to api-gateway's auth
+module; this service only reads that state. The exception is AI-derived profile
+state — the 4D CEFR profile is produced by evaluation here (PRD §22), so its
+write lives with the engine that computes it, not with auth.
 """
 
 from uuid import UUID
@@ -33,3 +34,32 @@ async def get_learner_profile_by_user(
     return await conn.fetchrow(
         "SELECT * FROM learner_profiles WHERE user_id = $1", user_id
     )
+
+
+async def initialize_cefr_profile(
+    conn: asyncpg.Connection,
+    learner_profile_id: UUID,
+    *,
+    cefr_writing: str | None,
+    cefr_reading: str | None,
+) -> bool:
+    """Write the placement-derived dimensions and mark onboarding complete
+    (PRD §22.3). Speaking/listening are left untouched — they stay NULL until
+    the Voice pipeline populates them (Phase 2). Returns False if the profile
+    id doesn't exist."""
+    status = await conn.fetchval(
+        """
+        UPDATE learner_profiles
+        SET cefr_writing = $2,
+            cefr_reading = $3,
+            placement_completed_at = now(),
+            onboarding_completed = true,
+            updated_at = now()
+        WHERE id = $1
+        RETURNING id
+        """,
+        learner_profile_id,
+        cefr_writing,
+        cefr_reading,
+    )
+    return status is not None
