@@ -6,6 +6,7 @@
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
 import { buildApp, type AppOptions } from "../src/app";
+import type { AiServiceClient, CefrProfileDto, EvaluatePlacementInput } from "../src/clients/ai-service";
 import type { DbClient, Queryable } from "../src/db/client";
 import { type AccessTokenClaims, JwtStrategy } from "../src/modules/auth/jwt.strategy";
 import type { WritingEvalJobData, WritingEvalQueue } from "../src/queue/bullmq-client";
@@ -98,6 +99,39 @@ export function makeFakeRedis(): FakeRedis {
 	};
 }
 
+export interface FakeAiService extends AiServiceClient {
+	calls: Array<{ method: string; args: unknown }>;
+}
+
+/** Records calls and returns a canned 4D profile; override the profile or make
+ * a method throw to exercise error paths. */
+export function makeFakeAiService(
+	opts: { profile?: CefrProfileDto; evaluateError?: unknown; profileError?: unknown } = {},
+): FakeAiService {
+	const calls: Array<{ method: string; args: unknown }> = [];
+	const defaultProfile: CefrProfileDto = {
+		learner_profile_id: LEARNER_PROFILE_ID,
+		placement_completed: true,
+		writing: { level: "B2", source: "assessed", note: null },
+		reading: { level: "B2", source: "proxy", note: "Phase-1 proxy from writing" },
+		speaking: { level: null, source: "pending", note: "Voice Agent — Phase 2" },
+		listening: { level: null, source: "pending", note: "proxy from speaking — Phase 2" },
+	};
+	return {
+		calls,
+		async evaluatePlacement(input: EvaluatePlacementInput) {
+			calls.push({ method: "evaluatePlacement", args: input });
+			if (opts.evaluateError) throw opts.evaluateError;
+			return opts.profile ?? defaultProfile;
+		},
+		async getCefrProfile(id: string) {
+			calls.push({ method: "getCefrProfile", args: id });
+			if (opts.profileError) throw opts.profileError;
+			return opts.profile ?? defaultProfile;
+		},
+	};
+}
+
 export interface TestJwtMaterial {
 	jwt: JwtStrategy;
 	privateKeyPem: string;
@@ -149,21 +183,30 @@ export interface TestApp {
 	queue: FakeQueue;
 	redis: FakeRedis;
 	jwt: JwtStrategy;
+	aiService: FakeAiService;
 }
 
 /** Builds a fully-wired app with fakes for every injected dependency,
  * generating a fresh test JwtStrategy unless one is supplied. */
 export async function buildTestApp(
-	opts: Partial<AppOptions> & { db?: FakeDb; queue?: FakeQueue; redis?: FakeRedis } = {},
+	opts: Partial<AppOptions> & {
+		db?: FakeDb;
+		queue?: FakeQueue;
+		redis?: FakeRedis;
+		aiService?: FakeAiService;
+	} = {},
 ): Promise<TestApp> {
 	const db = opts.db ?? makeFakeDb();
 	const queue = opts.queue ?? makeFakeQueue();
 	const redis = opts.redis ?? makeFakeRedis();
 	const jwt = opts.jwt ?? (await makeTestJwt());
+	// Always inject an ai-service fake so buildApp never falls through to
+	// loadEnv() in tests (the aiService branch would otherwise trigger it).
+	const aiService = opts.aiService ?? makeFakeAiService();
 	// Spread opts first so extra AppOptions (e.g. enforceCalibrationGate) flow
 	// through; the resolved fakes below win over any same-named keys.
-	const app = buildApp({ ...opts, db, queue, redis, jwt });
-	return { app, db, queue, redis, jwt };
+	const app = buildApp({ ...opts, db, queue, redis, jwt, aiService });
+	return { app, db, queue, redis, jwt, aiService };
 }
 
 export const LEARNER_PROFILE_ID = DEFAULT_TEST_CLAIMS.lpid;

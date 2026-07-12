@@ -8,6 +8,7 @@ export interface Env {
 	jwtPrivateKeyPath: string;
 	jwtPublicKeyPath: string;
 	enforceCalibrationGate: boolean;
+	aiServiceUrl: string;
 }
 
 export function loadEnv(): Env {
@@ -33,5 +34,8 @@ export function loadEnv(): Env {
 		// that defaulted off would ship the exact thing it exists to prevent.
 		// Dev sets ENFORCE_CALIBRATION_GATE=false to see provisional scores.
 		enforceCalibrationGate: process.env.ENFORCE_CALIBRATION_GATE !== "false",
+		// Synchronous calls to the Python evaluation service (placement scoring).
+		// Same var the worker uses; :8000 is the ai-service container's port.
+		aiServiceUrl: process.env.AI_SERVICE_URL || "http://localhost:8000",
 	};
 }

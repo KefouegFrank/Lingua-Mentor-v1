@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+
+import {
+	LEARNER_PROFILE_ID,
+	bearerHeader,
+	buildTestApp,
+	makeFakeAiService,
+	makeFakeDb,
+	signTestAccessToken,
+} from "./helpers";
+
+const SUBMIT_URL = "/api/v1/placement/submit";
+
+function targetExamDb(target_exam: string | null = "ielts_academic") {
+	return makeFakeDb([{ match: "FROM learner_profiles", rows: target_exam == null ? [{ target_exam: null }] : [{ target_exam }] }]);
+}
+
+describe("POST /api/v1/placement/submit", () => {
+	it("resolves the target exam and returns the 4D profile from ai-service", async () => {
+		const db = targetExamDb("ielts_academic");
+		const aiService = makeFakeAiService();
+		const { app, jwt } = await buildTestApp({ db, aiService });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "Discuss X.", essay_text: "In my view..." },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json();
+		expect(body.writing.level).toBe("B2");
+		expect(body.speaking.source).toBe("pending");
+
+		// ai-service was called with the learner's exam + id from the JWT.
+		expect(aiService.calls).toHaveLength(1);
+		expect(aiService.calls[0]).toEqual({
+			method: "evaluatePlacement",
+			args: {
+				learnerProfileId: LEARNER_PROFILE_ID,
+				examType: "ielts_academic",
+				promptText: "Discuss X.",
+				essayText: "In my view...",
+			},
+		});
+	});
+
+	it("returns 400 NO_TARGET_EXAM when the learner has no exam set", async () => {
+		const db = targetExamDb(null);
+		const aiService = makeFakeAiService();
+		const { app, jwt } = await buildTestApp({ db, aiService });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "p", essay_text: "e" },
+		});
+
+		expect(res.statusCode).toBe(400);
+		expect(res.json().error.code).toBe("NO_TARGET_EXAM");
+		// Never reached ai-service — no exam, no rubric to score against.
+		expect(aiService.calls).toHaveLength(0);
+	});
+
+	it("surfaces an ai-service error through the gateway envelope", async () => {
+		const db = targetExamDb("ielts_academic");
+		const { AppError } = await import("../src/plugins/error-envelope");
+		const aiService = makeFakeAiService({ evaluateError: new AppError(502, "EVALUATION_FAILED", "model failed") });
+		const { app, jwt } = await buildTestApp({ db, aiService });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "p", essay_text: "e" },
+		});
+
+		expect(res.statusCode).toBe(502);
+		expect(res.json().error.code).toBe("EVALUATION_FAILED");
+	});
+
+	it("rejects a body missing essay_text with a 400 envelope", async () => {
+		const { app, jwt } = await buildTestApp();
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "p" },
+		});
+
+		expect(res.statusCode).toBe(400);
+		expect(res.json().error.code).toBe("VALIDATION_ERROR");
+	});
+
+	it("rejects a request with no bearer token", async () => {
+		const { app } = await buildTestApp();
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			payload: { prompt_text: "p", essay_text: "e" },
+		});
+
+		expect(res.statusCode).toBe(401);
+	});
+});
+
+describe("GET /api/v1/user/cefr-profile", () => {
+	it("returns the 4D profile from ai-service for the authenticated learner", async () => {
+		const aiService = makeFakeAiService();
+		const { app, jwt } = await buildTestApp({ aiService });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/v1/user/cefr-profile",
+			headers: bearerHeader(token),
+		});
+
+		expect(res.statusCode).toBe(200);
+		expect(res.json().writing.level).toBe("B2");
+		expect(aiService.calls).toEqual([{ method: "getCefrProfile", args: LEARNER_PROFILE_ID }]);
+	});
+
+	it("rejects a request with no bearer token", async () => {
+		const { app } = await buildTestApp();
+
+		const res = await app.inject({ method: "GET", url: "/api/v1/user/cefr-profile" });
+
+		expect(res.statusCode).toBe(401);
+	});
+});

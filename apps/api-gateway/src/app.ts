@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import fastifyCookie from "@fastify/cookie";
 import Fastify, { type FastifyInstance } from "fastify";
 
+import { type AiServiceClient, createAiServiceClient } from "./clients/ai-service";
 import { loadEnv } from "./config/env";
 import { createPool, type DbClient } from "./db/client";
 import authRoutes from "./modules/auth/auth.routes";
 import { JwtStrategy } from "./modules/auth/jwt.strategy";
+import placementRoutes from "./modules/placement/placement.routes";
 import usersRoutes from "./modules/users/users.routes";
 import writingRoutes from "./modules/writing/writing.routes";
 import { registerErrorEnvelope } from "./plugins/error-envelope";
@@ -20,6 +22,7 @@ declare module "fastify" {
 		redis: RedisKv;
 		jwt: JwtStrategy;
 		calibrationGateEnforced: boolean;
+		aiService: AiServiceClient;
 	}
 }
 
@@ -30,6 +33,7 @@ export interface AppOptions {
 	redis?: RedisKv;
 	jwt?: JwtStrategy;
 	enforceCalibrationGate?: boolean;
+	aiService?: AiServiceClient;
 }
 
 export function buildApp(opts: AppOptions = {}): FastifyInstance {
@@ -48,7 +52,8 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	let redis = opts.redis;
 	let jwt = opts.jwt;
 	let enforceCalibrationGate = opts.enforceCalibrationGate;
-	if (!db || !queue || !redis || !jwt) {
+	let aiService = opts.aiService;
+	if (!db || !queue || !redis || !jwt || !aiService) {
 		const env = loadEnv();
 		db = db ?? createPool(env.databaseUrl);
 		queue = queue ?? createWritingEvalQueue(env.redisUrl);
@@ -60,11 +65,13 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 				readFileSync(env.jwtPublicKeyPath, "utf-8"),
 			);
 		enforceCalibrationGate = enforceCalibrationGate ?? env.enforceCalibrationGate;
+		aiService = aiService ?? createAiServiceClient(env.aiServiceUrl);
 	}
 	app.decorate("db", db);
 	app.decorate("writingQueue", queue);
 	app.decorate("redis", redis);
 	app.decorate("jwt", jwt);
+	app.decorate("aiService", aiService);
 	// Fail-closed: if nothing set it (e.g. a test that doesn't opt out), the
 	// gate is on — see loadEnv's ENFORCE_CALIBRATION_GATE comment.
 	app.decorate("calibrationGateEnforced", enforceCalibrationGate ?? true);
@@ -83,6 +90,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	app.register(authRoutes, { prefix: "/api/v1/auth" });
 	app.register(usersRoutes, { prefix: "/api/v1/user" });
 	app.register(writingRoutes, { prefix: "/api/v1/writing" });
+	app.register(placementRoutes, { prefix: "/api/v1/placement" });
 
 	return app;
 }
