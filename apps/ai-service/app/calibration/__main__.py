@@ -9,11 +9,16 @@ Usage:
         --calibration-version v1.0-launch --examiner-count 2 \
         --kappa 0.87 --signed-off-by "Lead Examiner"
 
+    # Drift check (PRD §27.2): compare this run to each exam's active
+    # baseline; a Pearson drop > 0.05 is a drift event (exit 4):
+    python -m app.calibration <dataset.jsonl> --drift-check
+
 Requires GROQ_API_KEY (and the model tiers) from the environment/.env;
---persist additionally needs DATABASE_URL. Prints a gate summary per exam
-type. Exit code 0 only if every exam type passes every *implemented* writing
-gate — and even then the run is a WRITING pass, not a full Phase 0 pass, while
-WER/pronunciation is unbuilt (Brief §9, ADR 0006 §2.2). A partial pass is a no-go.
+--persist and --drift-check additionally need DATABASE_URL. Prints a gate
+summary per exam type. Exit code 0 only if every exam type passes every
+*implemented* writing gate — and even then the run is a WRITING pass, not a
+full Phase 0 pass, while WER/pronunciation is unbuilt (Brief §9, ADR 0006
+§2.2). A partial pass is a no-go.
 """
 
 import argparse
@@ -25,6 +30,7 @@ from pathlib import Path
 
 import asyncpg
 
+from app.calibration.drift import DRIFT_THRESHOLD, check_drift
 from app.calibration.harness import (
     CATEGORY_GATE,
     CEFR_GATE,
@@ -108,13 +114,46 @@ def _persist_precheck(reports, args) -> str | None:
     return None
 
 
+def _dsn() -> str:
+    settings = get_settings()
+    return settings.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+
+async def _run_drift_check(reports) -> bool:
+    """Compare this run to each exam's active baseline (PRD §27.2). Returns
+    True if any exam drifted. No baseline is reported, not failed — a first
+    run has nothing to drift from."""
+    conn = await asyncpg.connect(_dsn())
+    try:
+        results = await check_drift(conn, reports)
+    finally:
+        await conn.close()
+
+    print(f"\n=== Drift check (threshold {DRIFT_THRESHOLD}, PRD §27.2) ===")
+    any_drift = False
+    for r in results:
+        if not r.has_baseline:
+            print(f"  {r.exam_type}: no active baseline — nothing to drift from")
+            continue
+        flag = "DRIFT" if r.drifted else "ok"
+        print(
+            f"  {r.exam_type}: baseline {r.baseline_version} r={r.baseline_pearson} "
+            f"-> current r={r.current_pearson} (drop {r.drop}) [{flag}]"
+        )
+        if r.drifted:
+            any_drift = True
+            print(
+                f"      ALERT: correlation dropped more than {DRIFT_THRESHOLD} below "
+                f"baseline — treat {r.exam_type} scoring as frozen until investigated."
+            )
+    return any_drift
+
+
 async def _persist_baseline(report, args) -> None:
     """Insert the single passing report as an immutable baseline row. The row
     is what score reports later cite ('calibrated against N essays', PRD §21.3)
     and what the scoring path resolves calibration_version from."""
-    settings = get_settings()
-    dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
-    conn = await asyncpg.connect(dsn)
+    conn = await asyncpg.connect(_dsn())
     try:
         async with conn.transaction():
             await calibration_repository.insert_baseline(
@@ -157,6 +196,11 @@ def main() -> int:
     parser.add_argument(
         "--kappa", type=float, help="human-human inter-rater kappa for the dataset (Brief §6.1, >= 0.80)"
     )
+    parser.add_argument(
+        "--drift-check",
+        action="store_true",
+        help="compare this run to each exam's active baseline; drop > 0.05 exits 4 (PRD §27.2)",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -194,6 +238,11 @@ def main() -> int:
     if args.output:
         args.output.write_text(json.dumps([r.to_dict() for r in reports], indent=2))
         print(f"\nfull report written to {args.output}")
+
+    if args.drift_check and asyncio.run(_run_drift_check(reports)):
+        # Distinct exit code: a drift event isn't a gate failure — the run may
+        # be green against the gates and still be worse than its own baseline.
+        return 4
 
     # Two independent conditions: every writing gate green, AND every Phase 0
     # gate actually built. While WER is pending, the best possible outcome is a
