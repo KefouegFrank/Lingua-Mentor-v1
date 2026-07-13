@@ -6,7 +6,12 @@
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
 import { buildApp, type AppOptions } from "../src/app";
-import type { AiServiceClient, CefrProfileDto, EvaluatePlacementInput } from "../src/clients/ai-service";
+import type {
+	AiServiceClient,
+	CefrProfileDto,
+	EvaluatePlacementInput,
+	ExamPreview,
+} from "../src/clients/ai-service";
 import type { DbClient, Queryable } from "../src/db/client";
 import { type AccessTokenClaims, JwtStrategy } from "../src/modules/auth/jwt.strategy";
 import type {
@@ -130,10 +135,30 @@ export interface FakeAiService extends AiServiceClient {
 	calls: Array<{ method: string; args: unknown }>;
 }
 
+const DEFAULT_EXAMS: ExamPreview[] = [
+	{
+		exam_id: "ielts_academic",
+		display_name: "IELTS Academic",
+		language: "en",
+		task_name: "Task 2 (Essay)",
+		categories: [
+			{ key: "task_response", name: "Task Response", weight: "0.250" },
+			{ key: "coherence_cohesion", name: "Coherence & Cohesion", weight: "0.250" },
+			{ key: "lexical_resource", name: "Lexical Resource", weight: "0.250" },
+			{ key: "grammatical_range_accuracy", name: "Grammatical Range & Accuracy", weight: "0.250" },
+		],
+	},
+];
+
 /** Records calls and returns a canned 4D profile; override the profile or make
  * a method throw to exercise error paths. */
 export function makeFakeAiService(
-	opts: { profile?: CefrProfileDto; evaluateError?: unknown; profileError?: unknown } = {},
+	opts: {
+		profile?: CefrProfileDto;
+		exams?: ExamPreview[];
+		evaluateError?: unknown;
+		profileError?: unknown;
+	} = {},
 ): FakeAiService {
 	const calls: Array<{ method: string; args: unknown }> = [];
 	const defaultProfile: CefrProfileDto = {
@@ -155,6 +180,10 @@ export function makeFakeAiService(
 			calls.push({ method: "getCefrProfile", args: id });
 			if (opts.profileError) throw opts.profileError;
 			return opts.profile ?? defaultProfile;
+		},
+		async listExams() {
+			calls.push({ method: "listExams", args: undefined });
+			return opts.exams ?? DEFAULT_EXAMS;
 		},
 	};
 }
@@ -233,9 +262,12 @@ export async function buildTestApp(
 	// Always inject an ai-service fake so buildApp never falls through to
 	// loadEnv() in tests (the aiService branch would otherwise trigger it).
 	const aiService = opts.aiService ?? makeFakeAiService();
+	// Same reasoning as aiService above — undefined here would fall through to
+	// loadEnv() in buildApp. Matches the frontend's local dev origin default.
+	const corsOrigins = opts.corsOrigins ?? ["http://localhost:3001"];
 	// Spread opts first so extra AppOptions (e.g. enforceCalibrationGate) flow
 	// through; the resolved fakes below win over any same-named keys.
-	const app = buildApp({ ...opts, db, queue, appealQueue, redis, jwt, aiService });
+	const app = buildApp({ ...opts, db, queue, appealQueue, redis, jwt, aiService, corsOrigins });
 	return { app, db, queue, appealQueue, redis, jwt, aiService };
 }
 

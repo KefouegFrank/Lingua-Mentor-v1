@@ -9,6 +9,10 @@ export interface Env {
 	jwtPublicKeyPath: string;
 	enforceCalibrationGate: boolean;
 	aiServiceUrl: string;
+	// Comma-separated allowlist of browser origins allowed to call this API
+	// with credentials (the refresh cookie). Wildcard "*" is rejected by the
+	// CORS spec once credentials are involved, so this must be explicit.
+	corsOrigins: string[];
 }
 
 export function loadEnv(): Env {
@@ -37,5 +41,11 @@ export function loadEnv(): Env {
 		// Synchronous calls to the Python evaluation service (placement scoring).
 		// Same var the worker uses; :8000 is the ai-service container's port.
 		aiServiceUrl: process.env.AI_SERVICE_URL || "http://localhost:8000",
+		// Default matches the frontend's local dev port (next dev -p 3001) —
+		// see apps/frontend/package.json. Production sets this explicitly.
+		corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:3001")
+			.split(",")
+			.map((o) => o.trim())
+			.filter(Boolean),
 	};
 }

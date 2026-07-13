@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import fastifyCookie from "@fastify/cookie";
+import fastifyCors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { type AiServiceClient, createAiServiceClient } from "./clients/ai-service";
@@ -41,6 +42,7 @@ export interface AppOptions {
 	jwt?: JwtStrategy;
 	enforceCalibrationGate?: boolean;
 	aiService?: AiServiceClient;
+	corsOrigins?: string[];
 }
 
 export function buildApp(opts: AppOptions = {}): FastifyInstance {
@@ -61,7 +63,8 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	let jwt = opts.jwt;
 	let enforceCalibrationGate = opts.enforceCalibrationGate;
 	let aiService = opts.aiService;
-	if (!db || !queue || !appealQueue || !redis || !jwt || !aiService) {
+	let corsOrigins = opts.corsOrigins;
+	if (!db || !queue || !appealQueue || !redis || !jwt || !aiService || !corsOrigins) {
 		const env = loadEnv();
 		db = db ?? createPool(env.databaseUrl);
 		queue = queue ?? createWritingEvalQueue(env.redisUrl);
@@ -75,7 +78,15 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 			);
 		enforceCalibrationGate = enforceCalibrationGate ?? env.enforceCalibrationGate;
 		aiService = aiService ?? createAiServiceClient(env.aiServiceUrl);
+		corsOrigins = corsOrigins ?? env.corsOrigins;
 	}
+
+	// credentials: true is required for the refresh cookie to travel
+	// cross-origin (the frontend runs on its own port in dev, its own
+	// subdomain in prod) — an explicit origin allowlist, never "*", is the
+	// only combination browsers permit once credentials are involved.
+	app.register(fastifyCors, { origin: corsOrigins, credentials: true });
+
 	app.decorate("db", db);
 	app.decorate("writingQueue", queue);
 	app.decorate("appealQueue", appealQueue);

@@ -16,6 +16,14 @@ export default async function writingRoutes(app: FastifyInstance): Promise<void>
 	// Scoped to this plugin only — see src/middleware/authenticate.ts.
 	app.addHook("preHandler", authenticate);
 
+	// Rubric metadata for the essay submission form (exam picker, category
+	// names). Proxies ai-service's internal /writing-eval/exams — the exam
+	// YAMLs are the single source of truth (conventions doc §8), so nothing
+	// here hardcodes a second copy of the exam list.
+	app.get("/exams", async () => {
+		return app.aiService.listExams();
+	});
+
 	// TODO(slice-6): enforce the free-tier quota (3 evaluations/month, PRD
 	// §5.1) here now that request.user.tier comes from a verified JWT.
 	app.post("/submit", async (request, reply) => {

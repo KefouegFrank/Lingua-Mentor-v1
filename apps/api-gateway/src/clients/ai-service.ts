@@ -25,16 +25,31 @@ export interface EvaluatePlacementInput {
 	essayText: string;
 }
 
+export interface ExamRubricCategory {
+	key: string;
+	name: string;
+	weight: string;
+}
+
+export interface ExamPreview {
+	exam_id: string;
+	display_name: string;
+	language: string;
+	task_name: string;
+	categories: ExamRubricCategory[];
+}
+
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
 	getCefrProfile(learnerProfileId: string): Promise<CefrProfileDto>;
+	listExams(): Promise<ExamPreview[]>;
 }
 
 export function createAiServiceClient(baseUrl: string): AiServiceClient {
 	const base = baseUrl.replace(/\/$/, "");
 
-	async function toProfile(res: Response): Promise<CefrProfileDto> {
-		if (res.ok) return (await res.json()) as CefrProfileDto;
+	async function toJson<T>(res: Response): Promise<T> {
+		if (res.ok) return (await res.json()) as T;
 		// ai-service speaks the same {error:{code,message}} envelope — re-raise it
 		// as our AppError so the gateway emits one consistent error shape.
 		let code = "UPSTREAM_ERROR";
@@ -51,7 +66,7 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 		throw new AppError(res.status >= 500 ? 502 : res.status, code, message);
 	}
 
-	async function call(path: string, init: RequestInit): Promise<CefrProfileDto> {
+	async function call<T>(path: string, init: RequestInit): Promise<T> {
 		let res: Response;
 		try {
 			res = await fetch(`${base}${path}`, {
@@ -62,12 +77,12 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 			// DNS/connection/timeout — the service is down, not a client error.
 			throw new AppError(502, "AI_SERVICE_UNREACHABLE", "evaluation service is unavailable");
 		}
-		return toProfile(res);
+		return toJson<T>(res);
 	}
 
 	return {
 		evaluatePlacement(input) {
-			return call("/api/v1/placement/evaluate", {
+			return call<CefrProfileDto>("/api/v1/placement/evaluate", {
 				method: "POST",
 				body: JSON.stringify({
 					learner_profile_id: input.learnerProfileId,
@@ -78,7 +93,15 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 			});
 		},
 		getCefrProfile(learnerProfileId) {
-			return call(`/api/v1/placement/profile/${learnerProfileId}`, { method: "GET" });
+			return call<CefrProfileDto>(`/api/v1/placement/profile/${learnerProfileId}`, {
+				method: "GET",
+			});
+		},
+		listExams() {
+			// Rubric metadata is config, not a duplicated frontend list — proxying
+			// the exam YAMLs' own source of truth keeps the selector honest as
+			// exams are added, quarantined (ADR 0003), or reworked (ADR 0002).
+			return call<ExamPreview[]>("/api/v1/writing-eval/exams", { method: "GET" });
 		},
 	};
 }
