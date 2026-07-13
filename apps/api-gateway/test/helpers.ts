@@ -9,7 +9,12 @@ import { buildApp, type AppOptions } from "../src/app";
 import type { AiServiceClient, CefrProfileDto, EvaluatePlacementInput } from "../src/clients/ai-service";
 import type { DbClient, Queryable } from "../src/db/client";
 import { type AccessTokenClaims, JwtStrategy } from "../src/modules/auth/jwt.strategy";
-import type { WritingEvalJobData, WritingEvalQueue } from "../src/queue/bullmq-client";
+import type {
+	AppealEvalJobData,
+	AppealEvalQueue,
+	WritingEvalJobData,
+	WritingEvalQueue,
+} from "../src/queue/bullmq-client";
 import type { RedisKv } from "../src/redis/client";
 
 export interface RecordedQuery {
@@ -61,6 +66,28 @@ export interface FakeQueue extends WritingEvalQueue {
 
 export function makeFakeQueue(opts: { failWith?: Error } = {}): FakeQueue {
 	const jobs: RecordedJob[] = [];
+	return {
+		jobs,
+		async add(name, data, jobOpts) {
+			if (opts.failWith) throw opts.failWith;
+			jobs.push({ name, data, opts: jobOpts });
+			return { id: jobOpts.jobId };
+		},
+	};
+}
+
+export interface RecordedAppealJob {
+	name: string;
+	data: AppealEvalJobData;
+	opts: { jobId: string };
+}
+
+export interface FakeAppealQueue extends AppealEvalQueue {
+	jobs: RecordedAppealJob[];
+}
+
+export function makeFakeAppealQueue(opts: { failWith?: Error } = {}): FakeAppealQueue {
+	const jobs: RecordedAppealJob[] = [];
 	return {
 		jobs,
 		async add(name, data, jobOpts) {
@@ -181,6 +208,7 @@ export interface TestApp {
 	app: ReturnType<typeof buildApp>;
 	db: FakeDb;
 	queue: FakeQueue;
+	appealQueue: FakeAppealQueue;
 	redis: FakeRedis;
 	jwt: JwtStrategy;
 	aiService: FakeAiService;
@@ -192,12 +220,14 @@ export async function buildTestApp(
 	opts: Partial<AppOptions> & {
 		db?: FakeDb;
 		queue?: FakeQueue;
+		appealQueue?: FakeAppealQueue;
 		redis?: FakeRedis;
 		aiService?: FakeAiService;
 	} = {},
 ): Promise<TestApp> {
 	const db = opts.db ?? makeFakeDb();
 	const queue = opts.queue ?? makeFakeQueue();
+	const appealQueue = opts.appealQueue ?? makeFakeAppealQueue();
 	const redis = opts.redis ?? makeFakeRedis();
 	const jwt = opts.jwt ?? (await makeTestJwt());
 	// Always inject an ai-service fake so buildApp never falls through to
@@ -205,8 +235,8 @@ export async function buildTestApp(
 	const aiService = opts.aiService ?? makeFakeAiService();
 	// Spread opts first so extra AppOptions (e.g. enforceCalibrationGate) flow
 	// through; the resolved fakes below win over any same-named keys.
-	const app = buildApp({ ...opts, db, queue, redis, jwt, aiService });
-	return { app, db, queue, redis, jwt, aiService };
+	const app = buildApp({ ...opts, db, queue, appealQueue, redis, jwt, aiService });
+	return { app, db, queue, appealQueue, redis, jwt, aiService };
 }
 
 export const LEARNER_PROFILE_ID = DEFAULT_TEST_CLAIMS.lpid;

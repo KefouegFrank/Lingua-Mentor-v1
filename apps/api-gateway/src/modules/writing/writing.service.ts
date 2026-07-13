@@ -2,7 +2,13 @@
 // (the source of truth the worker re-reads), enqueue the pointer job, and
 // read results back. Scoring itself lives in ai-service — never here.
 import type { DbClient } from "../../db/client";
-import { enqueueWritingEval, type WritingEvalQueue } from "../../queue/bullmq-client";
+import { AppError } from "../../plugins/error-envelope";
+import {
+	type AppealEvalQueue,
+	enqueueAppealEval,
+	enqueueWritingEval,
+	type WritingEvalQueue,
+} from "../../queue/bullmq-client";
 
 export interface WritingDeps {
 	db: DbClient;
@@ -170,4 +176,141 @@ export async function getWritingResult(
 		grammar_corrections: row.grammar_corrections ?? [],
 		vocabulary_suggestions: row.vocabulary_suggestions ?? [],
 	};
+}
+
+// --- Score appeal (PRD §21.4, §35.4) ---
+
+export interface AppealDeps {
+	db: DbClient;
+	appealQueue: AppealEvalQueue;
+}
+
+export interface AppealResult {
+	appeal_id: string;
+	// "pending" | "processing" | "resolved" | "failed"
+	status: string;
+	writing_session_id: string;
+	// NUMERICs stay strings — same no-drift rule as WritingResult.
+	original_score: string;
+	secondary_score?: string | null;
+	discrepancy_delta?: string | null;
+	// PRD §21.4: delta > 0.5 band flags the appeal for human review.
+	requires_human_review?: boolean;
+	created_at: string;
+	resolved_at?: string | null;
+	message?: string;
+}
+
+export async function submitAppeal(
+	deps: AppealDeps,
+	sessionId: string,
+	learnerProfileId: string,
+	appealReason: string | null,
+	enforceCalibrationGate: boolean,
+): Promise<{ appealId: string }> {
+	// Eligibility read first so each refusal gets a precise error; the INSERT
+	// below re-checks atomically, so a concurrent duplicate can't slip through.
+	const { rows } = await deps.db.query(
+		`SELECT ws.status, ws.overall_band_score, ws.calibration_version,
+				EXISTS (
+					SELECT 1 FROM score_appeals sa
+					WHERE sa.writing_session_id = ws.id
+					  AND sa.status IN ('pending', 'processing')
+				) AS has_open_appeal
+		 FROM writing_sessions ws
+		 WHERE ws.id = $1 AND ws.learner_profile_id = $2`,
+		[sessionId, learnerProfileId],
+	);
+	// Ownership in the WHERE clause: someone else's session reads as 404.
+	if (rows.length === 0) {
+		throw new AppError(404, "NOT_FOUND", "writing session not found");
+	}
+	const session = rows[0];
+	if (String(session.status) !== "scored") {
+		throw new AppError(409, "NOT_SCORED", "only a scored session can be appealed");
+	}
+	// A band withheld by the Phase 0 gate was never shown — there is no score
+	// for the learner to dispute, so an appeal is meaningless against it.
+	if (enforceCalibrationGate && session.calibration_version == null) {
+		throw new AppError(
+			409,
+			"SCORE_WITHHELD",
+			"this score is withheld pending calibration, so there is no displayed score to appeal",
+		);
+	}
+	if (session.has_open_appeal) {
+		throw new AppError(409, "APPEAL_PENDING", "an appeal for this session is already in progress");
+	}
+
+	const insert = await deps.db.query(
+		`INSERT INTO score_appeals (writing_session_id, learner_profile_id, appeal_reason, original_score)
+		 SELECT ws.id, ws.learner_profile_id, $3, ws.overall_band_score
+		 FROM writing_sessions ws
+		 WHERE ws.id = $1 AND ws.learner_profile_id = $2 AND ws.status = 'scored'
+		   AND NOT EXISTS (
+				SELECT 1 FROM score_appeals sa
+				WHERE sa.writing_session_id = ws.id
+				  AND sa.status IN ('pending', 'processing')
+		   )
+		 RETURNING id`,
+		[sessionId, learnerProfileId, appealReason],
+	);
+	if (insert.rows.length === 0) {
+		// The eligibility read passed but the guarded INSERT didn't — a
+		// concurrent appeal won the race between the two statements.
+		throw new AppError(409, "APPEAL_PENDING", "an appeal for this session is already in progress");
+	}
+	const appealId = String(insert.rows[0].id);
+
+	try {
+		await enqueueAppealEval(deps.appealQueue, appealId);
+	} catch (err) {
+		// Same failure rule as submitWriting: never strand a pending row that
+		// no worker will ever pick up — mark it failed so the poll explains.
+		await deps.db.query(`UPDATE score_appeals SET status = 'failed' WHERE id = $1`, [appealId]);
+		throw err;
+	}
+
+	return { appealId };
+}
+
+export async function getAppeal(
+	deps: { db: DbClient },
+	appealId: string,
+	learnerProfileId: string,
+): Promise<AppealResult | null> {
+	const { rows } = await deps.db.query(
+		`SELECT id, writing_session_id, status, original_score, secondary_score,
+				discrepancy_delta, requires_human_review, created_at, resolved_at
+		 FROM score_appeals
+		 WHERE id = $1 AND learner_profile_id = $2`,
+		[appealId, learnerProfileId],
+	);
+	if (rows.length === 0) return null;
+	const row = rows[0];
+	const status = String(row.status);
+
+	const toIso = (v: unknown): string | null =>
+		v == null ? null : v instanceof Date ? v.toISOString() : String(v);
+
+	const result: AppealResult = {
+		appeal_id: appealId,
+		status,
+		writing_session_id: String(row.writing_session_id),
+		original_score: String(row.original_score),
+		created_at: toIso(row.created_at) as string,
+		resolved_at: toIso(row.resolved_at),
+	};
+	if (status === "resolved") {
+		result.secondary_score = row.secondary_score as string | null;
+		result.discrepancy_delta = row.discrepancy_delta as string | null;
+		result.requires_human_review = Boolean(row.requires_human_review);
+	}
+	if (status === "failed") {
+		// PRD §37.4: a failed secondary evaluation keeps the original score
+		// displayed and tells the learner they can retry.
+		result.message =
+			"The secondary evaluation could not be completed. Your original score stands — you can submit the appeal again.";
+	}
+	return result;
 }

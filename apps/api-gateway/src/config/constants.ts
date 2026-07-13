@@ -18,6 +18,20 @@ export const WRITING_EVAL_JOB_OPTIONS = {
 	removeOnFail: false,
 } as const;
 
+// Score appeal secondary evaluation (PRD §21.4) — same producer/consumer
+// naming contract as writing_eval above.
+export const QUEUE_APPEAL_EVAL = "appeal_eval";
+export const JOB_APPEAL_EVALUATE = "evaluate";
+
+export const APPEAL_EVAL_JOB_OPTIONS = {
+	// Same retry envelope as writing_eval: the appeal SLA is <60s (PRD §21.4),
+	// and 3 attempts × 5s exponential backoff stays comfortably inside it.
+	attempts: 3,
+	backoff: { type: "exponential", delay: 5_000 },
+	removeOnComplete: { age: 3_600, count: 1_000 },
+	removeOnFail: false,
+} as const;
+
 // --- Auth ---
 // Named after the platform, not the deploy environment — verifiers reject
 // tokens from any other issuer even if they were signed with the right key.

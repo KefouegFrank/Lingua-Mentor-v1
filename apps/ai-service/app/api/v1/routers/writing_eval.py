@@ -16,7 +16,11 @@ from pydantic import BaseModel, Field
 from app.api.v1.deps import get_db, get_llm_provider
 from app.core.config import get_settings
 from app.db.repositories import calibration_repository, model_run_repository
-from app.engines.writing_evaluation import WritingEvaluationResult, evaluate_essay
+from app.engines.writing_evaluation import (
+    APPEAL_TEMPERATURE,
+    WritingEvaluationResult,
+    evaluate_essay,
+)
 from app.providers.llm.base import LLMProvider
 
 router = APIRouter(prefix="/writing-eval", tags=["writing-eval"])
@@ -84,6 +88,80 @@ async def evaluate(
         calibration_version=result.calibration_version,
     )
     return EvaluateResponse(**result.model_dump(), ai_model_run_id=run_id)
+
+
+class AppealEvaluateRequest(BaseModel):
+    exam_type: str
+    prompt_text: str = Field(min_length=1)
+    essay_text: str = Field(min_length=1)
+    # The appeal being resolved — ties the AIModelRun row to the appeal, not
+    # to the original writing session (that one already has its own run).
+    appeal_id: uuid.UUID
+    calibration_version: str | None = None
+
+
+class AppealEvaluateResponse(WritingEvaluationResult):
+    ai_model_run_id: uuid.UUID
+    # What produced this secondary score — persisted verbatim into
+    # score_appeals.secondary_model_config for the audit trail (PRD §21.4).
+    secondary_model_config: dict
+
+
+@router.post("/appeal", response_model=AppealEvaluateResponse)
+async def evaluate_appeal(
+    body: AppealEvaluateRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    provider: LLMProvider = Depends(get_llm_provider),
+) -> AppealEvaluateResponse:
+    """Secondary evaluation for a score appeal (PRD §21.4, §36.1).
+
+    Runs the appeal variant — independent re-mark prompt stance, different
+    temperature — and is never told the original score, so the re-mark can't
+    anchor on the number under dispute.
+    """
+    settings = get_settings()
+    # Same resolution rule as the primary path: an appeal on a calibrated
+    # score cites the same active baseline; an uncalibrated one stays NULL.
+    calibration_version = body.calibration_version
+    if calibration_version is None:
+        baseline = await calibration_repository.get_active_baseline(conn, body.exam_type)
+        calibration_version = baseline["calibration_version"] if baseline else None
+    result = await evaluate_essay(
+        provider,
+        exam_type=body.exam_type,
+        prompt_text=body.prompt_text,
+        essay_text=body.essay_text,
+        model=settings.llm_model_high_tier,
+        calibration_version=calibration_version,
+        variant="appeal",
+    )
+    run_id = await model_run_repository.insert_run(
+        conn,
+        session_id=body.appeal_id,
+        session_type="appeal",
+        task_type="appeal_scoring",
+        provider=result.provider,
+        model_name=result.model_name,
+        model_version=result.model_version,
+        prompt_hash=result.prompt_hash,
+        response_hash=result.response_hash,
+        input_token_count=result.input_token_count,
+        output_token_count=result.output_token_count,
+        latency_ms=result.latency_ms,
+        was_fallback=result.was_fallback,
+        calibration_version=result.calibration_version,
+    )
+    return AppealEvaluateResponse(
+        **result.model_dump(),
+        ai_model_run_id=run_id,
+        secondary_model_config={
+            "prompt_variant": "appeal",
+            "temperature": APPEAL_TEMPERATURE,
+            "provider": result.provider,
+            "model_name": result.model_name,
+            "model_version": result.model_version,
+        },
+    )
 
 
 class CategoryPreview(BaseModel):

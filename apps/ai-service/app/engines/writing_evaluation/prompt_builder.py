@@ -31,6 +31,21 @@ _POLICY_LAYER = """Non-negotiable constraints:
   outside JSON."""
 
 
+# Appeal re-marks (PRD §21.4) use a deliberately different marking method, not
+# just different sampling: descriptor-by-descriptor confirmation instead of
+# holistic scoring. The original score is never included anywhere in the
+# prompt — an anchored re-mark would only echo the score under appeal.
+_APPEAL_STANCE_LAYER = """Marking method for this evaluation — independent re-mark:
+- You are the second marker. Approach the essay fresh, with no assumption
+  that any prior score exists or was right.
+- Work descriptor-first: for each category, start from the band descriptors
+  and find the single band whose descriptor the essay's evidence best
+  satisfies, quoting that evidence — rather than forming an overall
+  impression and fitting descriptors to it.
+- Check one band above and one band below your choice and state (briefly, in
+  the feedback) why the essay does not meet the higher descriptor."""
+
+
 def _task_layer(config: ExamConfig) -> str:
     scale = config.writing.score_scale
     category_keys = [c.key for c in config.writing.rubric_categories]
@@ -84,13 +99,19 @@ def build_scoring_messages(
     essay_text: str,
     target_band: str | None = None,
     cefr_writing: str | None = None,
+    variant: str = "primary",
 ) -> list[LLMMessage]:
-    """Assemble the full message stack for one scoring call."""
+    """Assemble the full message stack for one scoring call.
+
+    `variant="appeal"` inserts the independent re-mark stance (PRD §21.4:
+    the secondary evaluation runs a different prompt configuration).
+    """
     system_content = "\n\n".join(
         layer
         for layer in (
             _SYSTEM_LAYER,
             _POLICY_LAYER,
+            _APPEAL_STANCE_LAYER if variant == "appeal" else None,
             _task_layer(config),
             _rubric_layer(config),
             _user_context_layer(target_band, cefr_writing),

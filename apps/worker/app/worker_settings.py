@@ -11,9 +11,10 @@ from typing import Any
 import asyncpg
 import httpx
 
-from app.tasks import writing_eval_task
+from app.tasks import appeal_eval_task, writing_eval_task
 
 QUEUE_WRITING_EVAL = "writing_eval"
+QUEUE_APPEAL_EVAL = "appeal_eval"
 
 Processor = Callable[[Any, str], Awaitable[Any]]
 
@@ -21,5 +22,6 @@ Processor = Callable[[Any, str], Awaitable[Any]]
 def build_queue_registry(pool: asyncpg.Pool, http: httpx.AsyncClient) -> dict[str, Processor]:
     return {
         QUEUE_WRITING_EVAL: writing_eval_task.make_processor(pool, http),
-        # Slice 8+: appeal_eval, srs_batch_generation, calibration_recompute
+        QUEUE_APPEAL_EVAL: appeal_eval_task.make_processor(pool, http),
+        # Later slices: srs_batch_generation, calibration_recompute
     }

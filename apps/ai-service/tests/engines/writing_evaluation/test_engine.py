@@ -6,6 +6,8 @@ from decimal import Decimal
 import pytest
 
 from app.engines.writing_evaluation.engine import (
+    APPEAL_TEMPERATURE,
+    SCORING_TEMPERATURE,
     EvaluationError,
     compute_overall_band,
     evaluate_essay,
@@ -40,9 +42,11 @@ class FakeProvider(LLMProvider):
     def __init__(self, responses: list[str]):
         self._responses = list(responses)
         self.calls: list[list[LLMMessage]] = []
+        self.temperatures: list[float] = []
 
     async def complete(self, messages, *, model, temperature, max_tokens=None, json_mode=False):
         self.calls.append(list(messages))
+        self.temperatures.append(temperature)
         return LLMResponse(
             content=self._responses.pop(0),
             provider=self.name,
@@ -125,6 +129,61 @@ async def test_essay_is_marked_untrusted_in_prompt():
     user = provider.calls[0][1].content
     assert "untrusted" in system  # policy layer names the threat
     assert "<<<ESSAY_START>>>" in user and "<<<ESSAY_END>>>" in user
+
+
+async def test_appeal_variant_uses_remark_stance_and_different_temperature():
+    """PRD §21.4: the secondary evaluation runs a different prompt
+    configuration and temperature — and never sees the original score."""
+    provider = FakeProvider([json.dumps(_valid_ielts_payload())])
+    await evaluate_essay(
+        provider,
+        exam_type="ielts_academic",
+        prompt_text="p",
+        essay_text="e",
+        model="m",
+        variant="appeal",
+    )
+    assert provider.temperatures == [APPEAL_TEMPERATURE]
+    system = provider.calls[0][0].content
+    assert "independent re-mark" in system
+    assert "second marker" in system
+
+
+async def test_primary_variant_has_no_remark_stance():
+    provider = FakeProvider([json.dumps(_valid_ielts_payload())])
+    await evaluate_essay(
+        provider, exam_type="ielts_academic", prompt_text="p", essay_text="e", model="m"
+    )
+    assert provider.temperatures == [SCORING_TEMPERATURE]
+    assert "independent re-mark" not in provider.calls[0][0].content
+
+
+async def test_appeal_variant_retry_keeps_appeal_temperature():
+    # The one correction retry must not silently fall back to the primary
+    # temperature — the whole §21.4 point is a *different* configuration.
+    provider = FakeProvider(["{not json", json.dumps(_valid_ielts_payload())])
+    await evaluate_essay(
+        provider,
+        exam_type="ielts_academic",
+        prompt_text="p",
+        essay_text="e",
+        model="m",
+        variant="appeal",
+    )
+    assert provider.temperatures == [APPEAL_TEMPERATURE, APPEAL_TEMPERATURE]
+
+
+async def test_unknown_variant_raises():
+    provider = FakeProvider([json.dumps(_valid_ielts_payload())])
+    with pytest.raises(ValueError, match="unknown evaluation variant"):
+        await evaluate_essay(
+            provider,
+            exam_type="ielts_academic",
+            prompt_text="p",
+            essay_text="e",
+            model="m",
+            variant="tertiary",
+        )
 
 
 def test_composite_rounds_to_half_band():

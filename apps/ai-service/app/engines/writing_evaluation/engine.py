@@ -30,6 +30,12 @@ from app.providers.llm.base import LLMMessage, LLMProvider, prompt_hash
 # §19.3 routing: writing scoring = high-tier model, temperature 0.1
 # ("high-stakes rubric scoring — top model + near-zero temperature").
 SCORING_TEMPERATURE = 0.1
+# Appeal re-marks (§21.4) run at a deliberately different temperature so the
+# secondary evaluation isn't a near-deterministic replay of the first — still
+# low enough to stay rubric-consistent.
+APPEAL_TEMPERATURE = 0.3
+
+_VARIANT_TEMPERATURES = {"primary": SCORING_TEMPERATURE, "appeal": APPEAL_TEMPERATURE}
 
 
 class EvaluationError(Exception):
@@ -68,10 +74,18 @@ async def evaluate_essay(
     target_band: str | None = None,
     cefr_writing: str | None = None,
     calibration_version: str | None = None,
+    variant: str = "primary",
 ) -> WritingEvaluationResult:
     """Score one essay. Raises EvaluationError if the model can't produce a
     schema-valid result after one correction retry; raises UnknownExamError
-    for an unconfigured exam_type."""
+    for an unconfigured exam_type.
+
+    `variant="appeal"` runs the §21.4 secondary configuration: the independent
+    re-mark prompt stance plus a different sampling temperature.
+    """
+    if variant not in _VARIANT_TEMPERATURES:
+        raise ValueError(f"unknown evaluation variant: {variant!r}")
+    temperature = _VARIANT_TEMPERATURES[variant]
     config = load_exam_config(exam_type)
     messages = build_scoring_messages(
         config,
@@ -79,10 +93,11 @@ async def evaluate_essay(
         essay_text=essay_text,
         target_band=target_band,
         cefr_writing=cefr_writing,
+        variant=variant,
     )
 
     response = await provider.complete(
-        messages, model=model, temperature=SCORING_TEMPERATURE, json_mode=True
+        messages, model=model, temperature=temperature, json_mode=True
     )
     total_input_tokens = response.input_token_count
     total_output_tokens = response.output_token_count
@@ -98,7 +113,7 @@ async def evaluate_essay(
             build_retry_message(str(first_error)),
         ]
         response = await provider.complete(
-            retry_messages, model=model, temperature=SCORING_TEMPERATURE, json_mode=True
+            retry_messages, model=model, temperature=temperature, json_mode=True
         )
         total_input_tokens += response.input_token_count
         total_output_tokens += response.output_token_count

@@ -10,6 +10,7 @@ from uuid import UUID
 import httpx
 
 EVALUATE_PATH = "/api/v1/writing-eval/evaluate"
+APPEAL_PATH = "/api/v1/writing-eval/appeal"
 
 
 class TerminalEvalError(Exception):
@@ -47,6 +48,38 @@ async def evaluate_writing(
                 "session_id": str(session_id),
                 # Ties the AIModelRun row ai-service logs to this submission.
                 "session_type": "submission",
+                "calibration_version": calibration_version,
+            },
+        )
+    except (httpx.TimeoutException, httpx.TransportError) as exc:
+        raise RetryableEvalError(str(exc)) from exc
+
+    if response.status_code == 200:
+        return response.json()
+    if 400 <= response.status_code < 500:
+        raise TerminalEvalError(_envelope_message(response))
+    raise RetryableEvalError(_envelope_message(response))
+
+
+async def evaluate_appeal(
+    http: httpx.AsyncClient,
+    *,
+    exam_type: str,
+    prompt_text: str,
+    essay_text: str,
+    appeal_id: UUID,
+    calibration_version: str | None,
+) -> dict:
+    """Secondary evaluation for a score appeal (PRD §21.4) — ai-service runs
+    its appeal variant (independent re-mark prompt, different temperature)."""
+    try:
+        response = await http.post(
+            APPEAL_PATH,
+            json={
+                "exam_type": exam_type,
+                "prompt_text": prompt_text,
+                "essay_text": essay_text,
+                "appeal_id": str(appeal_id),
                 "calibration_version": calibration_version,
             },
         )

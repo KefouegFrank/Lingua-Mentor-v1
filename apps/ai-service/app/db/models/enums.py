@@ -43,6 +43,9 @@ class AppealStatus(str, enum.Enum):
     PENDING = "pending"
     PROCESSING = "processing"
     RESOLVED = "resolved"
+    # PRD §37.4: a secondary evaluation that errors out must be visible as a
+    # failure the learner can retry — never left stuck at 'processing'.
+    FAILED = "failed"
 
 
 class SpeakingSessionType(str, enum.Enum):

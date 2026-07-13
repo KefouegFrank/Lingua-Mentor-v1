@@ -12,13 +12,19 @@ import placementRoutes from "./modules/placement/placement.routes";
 import usersRoutes from "./modules/users/users.routes";
 import writingRoutes from "./modules/writing/writing.routes";
 import { registerErrorEnvelope } from "./plugins/error-envelope";
-import { createWritingEvalQueue, type WritingEvalQueue } from "./queue/bullmq-client";
+import {
+	type AppealEvalQueue,
+	createAppealEvalQueue,
+	createWritingEvalQueue,
+	type WritingEvalQueue,
+} from "./queue/bullmq-client";
 import { createRedisKv, type RedisKv } from "./redis/client";
 
 declare module "fastify" {
 	interface FastifyInstance {
 		db: DbClient;
 		writingQueue: WritingEvalQueue;
+		appealQueue: AppealEvalQueue;
 		redis: RedisKv;
 		jwt: JwtStrategy;
 		calibrationGateEnforced: boolean;
@@ -30,6 +36,7 @@ export interface AppOptions {
 	// Test seams — production wiring is the default for anything omitted.
 	db?: DbClient;
 	queue?: WritingEvalQueue;
+	appealQueue?: AppealEvalQueue;
 	redis?: RedisKv;
 	jwt?: JwtStrategy;
 	enforceCalibrationGate?: boolean;
@@ -49,14 +56,16 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 
 	let db = opts.db;
 	let queue = opts.queue;
+	let appealQueue = opts.appealQueue;
 	let redis = opts.redis;
 	let jwt = opts.jwt;
 	let enforceCalibrationGate = opts.enforceCalibrationGate;
 	let aiService = opts.aiService;
-	if (!db || !queue || !redis || !jwt || !aiService) {
+	if (!db || !queue || !appealQueue || !redis || !jwt || !aiService) {
 		const env = loadEnv();
 		db = db ?? createPool(env.databaseUrl);
 		queue = queue ?? createWritingEvalQueue(env.redisUrl);
+		appealQueue = appealQueue ?? createAppealEvalQueue(env.redisUrl);
 		redis = redis ?? createRedisKv(env.redisUrl);
 		jwt =
 			jwt ??
@@ -69,6 +78,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	}
 	app.decorate("db", db);
 	app.decorate("writingQueue", queue);
+	app.decorate("appealQueue", appealQueue);
 	app.decorate("redis", redis);
 	app.decorate("jwt", jwt);
 	app.decorate("aiService", aiService);
@@ -78,6 +88,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 
 	app.addHook("onClose", async () => {
 		await app.writingQueue.close?.();
+		await app.appealQueue.close?.();
 		await app.redis.quit?.();
 		await app.db.end?.();
 	});

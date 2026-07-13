@@ -3,7 +3,10 @@ import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
 import {
+	APPEAL_EVAL_JOB_OPTIONS,
+	JOB_APPEAL_EVALUATE,
 	JOB_WRITING_EVALUATE,
+	QUEUE_APPEAL_EVAL,
 	QUEUE_WRITING_EVAL,
 	WRITING_EVAL_JOB_OPTIONS,
 } from "../config/constants";
@@ -51,4 +54,28 @@ export function enqueueWritingEval(
 		{ session_id: sessionId, exam_type: examType },
 		{ jobId: sessionId },
 	);
+}
+
+/** Appeal job payload — a pointer, same contract as WritingEvalJobData: the
+ * worker re-reads the score_appeals row as the source of truth. */
+export interface AppealEvalJobData {
+	appeal_id: string;
+}
+
+export interface AppealEvalQueue {
+	add(name: string, data: AppealEvalJobData, opts: { jobId: string }): Promise<unknown>;
+	close?(): Promise<void>;
+}
+
+export function createAppealEvalQueue(redisUrl: string): Queue {
+	const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+	return new Queue(QUEUE_APPEAL_EVAL, {
+		connection,
+		defaultJobOptions: APPEAL_EVAL_JOB_OPTIONS,
+	});
+}
+
+export function enqueueAppealEval(queue: AppealEvalQueue, appealId: string): Promise<unknown> {
+	// jobId = appeal_id — idempotent per appeal, like jobId = session_id above.
+	return queue.add(JOB_APPEAL_EVALUATE, { appeal_id: appealId }, { jobId: appealId });
 }

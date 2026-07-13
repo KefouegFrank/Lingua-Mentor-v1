@@ -51,6 +51,34 @@ async def test_evaluate_scores_and_logs_model_run(client, db_conn):
     assert run["provider"] == "fake"
 
 
+async def test_appeal_runs_secondary_config_and_logs_model_run(client, db_conn):
+    appeal_id = str(uuid.uuid4())
+    response = await client.post(
+        "/api/v1/writing-eval/appeal",
+        json={
+            "exam_type": "ielts_academic",
+            "prompt_text": "Discuss X.",
+            "essay_text": "My essay...",
+            "appeal_id": appeal_id,
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["overall_band_score"] == "6.50"
+    # The §21.4 audit trail: what configuration produced the secondary score.
+    assert body["secondary_model_config"]["prompt_variant"] == "appeal"
+    assert body["secondary_model_config"]["temperature"] == 0.3
+
+    # The AIModelRun row ties to the appeal, not the original writing session.
+    run = await db_conn.fetchrow(
+        "SELECT * FROM ai_model_runs WHERE id = $1", uuid.UUID(body["ai_model_run_id"])
+    )
+    assert run is not None
+    assert str(run["session_id"]) == appeal_id
+    assert run["session_type"] == "appeal"
+    assert run["task_type"] == "appeal_scoring"
+
+
 async def test_unknown_exam_returns_error_envelope(client):
     response = await client.post(
         "/api/v1/writing-eval/evaluate",
