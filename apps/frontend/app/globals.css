@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens (PRD §39 UX Design Philosophy): LinguaMentor is an AI
+ * evaluation tool, not a consumer entertainment app — clean, information
+ * dense, calm authority over playful gamification. Deep indigo reads as
+ * "trustworthy intelligence" rather than the saturated primary colors of
+ * streak-and-badge apps; amber is reserved for provisional/attention states
+ * (the Phase 0 "awaiting calibration" banner leans on this directly) so it
+ * never gets confused with an error.
+ *
+ * HSL triplets are unitless (no `hsl()` wrapper) so Tailwind can compose them
+ * as `hsl(var(--primary) / <alpha-value>)` for opacity variants.
+ */
+@layer base {
+	:root {
+		--background: 220 20% 98%;
+		--foreground: 222 47% 11%;
+
+		--card: 0 0% 100%;
+		--card-foreground: 222 47% 11%;
+
+		--popover: 0 0% 100%;
+		--popover-foreground: 222 47% 11%;
+
+		--primary: 234 62% 47%;
+		--primary-foreground: 210 40% 98%;
+
+		--secondary: 220 20% 94%;
+		--secondary-foreground: 222 47% 20%;
+
+		--muted: 220 16% 93%;
+		--muted-foreground: 222 15% 45%;
+
+		--accent: 38 92% 50%;
+		--accent-foreground: 24 40% 15%;
+
+		--success: 158 64% 32%;
+		--success-foreground: 150 40% 97%;
+
+		--warning: 38 92% 42%;
+		--warning-foreground: 40 40% 98%;
+
+		--destructive: 0 72% 48%;
+		--destructive-foreground: 0 0% 98%;
+
+		--border: 220 15% 88%;
+		--input: 220 15% 88%;
+		--ring: 234 62% 47%;
+
+		--radius: 0.625rem;
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border;
+	}
+	body {
+		@apply bg-background text-foreground antialiased;
+	}
+}
+
+/* CEFR band colors — used consistently everywhere a level is shown (radar
+ * chart, badges, score cards) so a learner learns to read the color once. */
+@layer utilities {
+	.cefr-a1, .cefr-a2 {
+		@apply bg-muted text-muted-foreground border-border;
+	}
+	.cefr-b1, .cefr-b2 {
+		@apply bg-primary/10 text-primary border-primary/20;
+	}
+	.cefr-c1, .cefr-c2 {
+		@apply bg-success/10 text-success border-success/20;
+	}
+}
