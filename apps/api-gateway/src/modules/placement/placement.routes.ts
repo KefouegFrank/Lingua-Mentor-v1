@@ -20,6 +20,7 @@ export default async function placementRoutes(app: FastifyInstance): Promise<voi
 				promptText: body.prompt_text,
 				essayText: body.essay_text,
 			},
+			app.calibrationGateEnforced,
 		);
 	});
 }

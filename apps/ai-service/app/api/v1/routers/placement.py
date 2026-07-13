@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.api.v1.deps import get_db, get_llm_provider
 from app.core.config import get_settings
-from app.db.repositories import model_run_repository, user_repository
+from app.db.repositories import calibration_repository, model_run_repository, user_repository
 from app.engines.cefr_profile import CefrProfile, placement_profile, profile_from_stored
 from app.engines.writing_evaluation import evaluate_essay
 from app.providers.llm.base import LLMProvider
@@ -64,12 +64,19 @@ async def evaluate_placement(
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> CefrProfileResponse:
     settings = get_settings()
+    # Same resolution rule as the scoring path: the run records which active
+    # baseline (if any) the placement level was produced under. The gateway
+    # refuses placement pre-baseline when the Phase 0 gate is enforced, so a
+    # NULL here can only come from a gate-off (dev/test) run.
+    baseline = await calibration_repository.get_active_baseline(conn, body.exam_type)
+    calibration_version = baseline["calibration_version"] if baseline else None
     result = await evaluate_essay(
         provider,
         exam_type=body.exam_type,
         prompt_text=body.prompt_text,
         essay_text=body.essay_text,
         model=settings.llm_model_high_tier,
+        calibration_version=calibration_version,
     )
     # Traceability (PRD §28.2): the LLM ran, so an AIModelRun row must exist —
     # even though the placement result is a CEFR level, not a shown exam band.
@@ -87,7 +94,7 @@ async def evaluate_placement(
         output_token_count=result.output_token_count,
         latency_ms=result.latency_ms,
         was_fallback=result.was_fallback,
-        calibration_version=None,
+        calibration_version=result.calibration_version,
     )
 
     profile = placement_profile(result.cefr_level)

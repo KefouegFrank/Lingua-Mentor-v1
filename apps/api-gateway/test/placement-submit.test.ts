@@ -11,8 +11,16 @@ import {
 
 const SUBMIT_URL = "/api/v1/placement/submit";
 
-function targetExamDb(target_exam: string | null = "ielts_academic") {
-	return makeFakeDb([{ match: "FROM learner_profiles", rows: target_exam == null ? [{ target_exam: null }] : [{ target_exam }] }]);
+function targetExamDb(
+	target_exam: string | null = "ielts_academic",
+	opts: { hasBaseline?: boolean } = {},
+) {
+	return makeFakeDb([
+		{ match: "FROM learner_profiles", rows: target_exam == null ? [{ target_exam: null }] : [{ target_exam }] },
+		// Phase 0 gate pre-check: an active baseline row makes placement
+		// available; omit it to exercise the AWAITING_CALIBRATION refusal.
+		{ match: "FROM calibration_baselines", rows: opts.hasBaseline === false ? [] : [{ "?column?": 1 }] },
+	]);
 }
 
 describe("POST /api/v1/placement/submit", () => {
@@ -45,6 +53,42 @@ describe("POST /api/v1/placement/submit", () => {
 				essayText: "In my view...",
 			},
 		});
+	});
+
+	it("returns 409 AWAITING_CALIBRATION before evaluating when no active baseline exists (PRD §60)", async () => {
+		const db = targetExamDb("ielts_academic", { hasBaseline: false });
+		const aiService = makeFakeAiService();
+		const { app, jwt } = await buildTestApp({ db, aiService });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "p", essay_text: "e" },
+		});
+
+		expect(res.statusCode).toBe(409);
+		expect(res.json().error.code).toBe("AWAITING_CALIBRATION");
+		// Refused before the LLM call — no evaluation, no tokens spent.
+		expect(aiService.calls).toHaveLength(0);
+	});
+
+	it("skips the baseline pre-check when the calibration gate is off (dev mode)", async () => {
+		const db = targetExamDb("ielts_academic", { hasBaseline: false });
+		const aiService = makeFakeAiService();
+		const { app, jwt } = await buildTestApp({ db, aiService, enforceCalibrationGate: false });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({
+			method: "POST",
+			url: SUBMIT_URL,
+			headers: bearerHeader(token),
+			payload: { prompt_text: "p", essay_text: "e" },
+		});
+
+		expect(res.statusCode).toBe(200);
+		expect(aiService.calls).toHaveLength(1);
 	});
 
 	it("returns 400 NO_TARGET_EXAM when the learner has no exam set", async () => {
