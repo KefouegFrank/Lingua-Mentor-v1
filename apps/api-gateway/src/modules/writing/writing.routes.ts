@@ -12,17 +12,25 @@ import {
 } from "./writing.schema";
 import { getAppeal, getWritingResult, submitAppeal, submitWriting } from "./writing.service";
 
-export default async function writingRoutes(app: FastifyInstance): Promise<void> {
-	// Scoped to this plugin only — see src/middleware/authenticate.ts.
-	app.addHook("preHandler", authenticate);
-
-	// Rubric metadata for the essay submission form (exam picker, category
-	// names). Proxies ai-service's internal /writing-eval/exams — the exam
-	// YAMLs are the single source of truth (conventions doc §8), so nothing
-	// here hardcodes a second copy of the exam list.
+// Rubric metadata (exam picker, category names) — deliberately public. The
+// registration form needs it to populate the target-exam field before an
+// account (and therefore a bearer token) exists, and there's nothing
+// sensitive in exam names/rubric weights to gate. Registered as its own
+// plugin instance so it sits outside writingRoutes' authenticate hook below
+// (Fastify hook encapsulation is per-plugin-instance, so this can't
+// accidentally inherit it) while still living under the same /writing
+// prefix. Proxies ai-service's internal /writing-eval/exams — the exam
+// YAMLs are the single source of truth (conventions doc §8), so nothing
+// here hardcodes a second copy of the exam list.
+export async function writingPublicRoutes(app: FastifyInstance): Promise<void> {
 	app.get("/exams", async () => {
 		return app.aiService.listExams();
 	});
+}
+
+export default async function writingRoutes(app: FastifyInstance): Promise<void> {
+	// Scoped to this plugin only — see src/middleware/authenticate.ts.
+	app.addHook("preHandler", authenticate);
 
 	// TODO(slice-6): enforce the free-tier quota (3 evaluations/month, PRD
 	// §5.1) here now that request.user.tier comes from a verified JWT.
