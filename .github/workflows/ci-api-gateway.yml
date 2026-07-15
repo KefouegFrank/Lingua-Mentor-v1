@@ -17,11 +17,11 @@ jobs:
       - uses: actions/checkout@v4
 
       # node-version-file, not a literal — see ci-frontend.yml for why.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
