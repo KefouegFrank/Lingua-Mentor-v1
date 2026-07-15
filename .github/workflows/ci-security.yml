@@ -15,7 +15,7 @@ jobs:
       # earlier commit and later "removed" in a follow-up. Deleting a secret
       # in a subsequent commit does not remove it from history; the credential
       # stays readable and stays compromised until it's rotated.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
