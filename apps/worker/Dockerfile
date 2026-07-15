@@ -1,7 +1,7 @@
 # Multi-stage — see apps/ai-service/Dockerfile for the full rationale
 # (same pattern, mirrored here).
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app
 
 RUN pip install --no-cache-dir poetry==2.4.1
@@ -15,7 +15,7 @@ RUN poetry install --only main --no-root
 
 COPY app ./app
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 WORKDIR /app
 
 RUN groupadd --system app && \
