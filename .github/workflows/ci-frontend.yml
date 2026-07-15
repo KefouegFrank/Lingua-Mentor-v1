@@ -4,25 +4,28 @@ on:
     paths:
       - "apps/frontend/**"
       - "packages/**"
+  # See ci-api-gateway.yml for why workflow_call carries no paths filter.
+  workflow_call:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Node 22, not the >=20 floor in root package.json's engines field —
-      # matches api-gateway's Dockerfile, which pins 22 because jose (RS256
-      # signing) needs >=20.19 and 20-slim currently resolves older.
+      # node-version-file keeps this in lockstep with .nvmrc, root
+      # package.json engines (>=24), and api-gateway's Dockerfile — CI that
+      # pins its own literal drifts from the runtime that actually ships,
+      # and then only production finds out.
       # Two setup-node steps: corepack (which reads the packageManager
       # field, pnpm@9.0.0) has to be enabled before cache: 'pnpm' can find
       # pnpm on PATH to resolve the store location.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: ".nvmrc"
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: ".nvmrc"
           cache: "pnpm"
 
       # --filter frontend... : frontend plus the workspace packages it

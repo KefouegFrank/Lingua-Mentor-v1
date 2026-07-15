@@ -2,8 +2,35 @@ name: Deploy
 on:
   push:
     branches: [main]
+
+# A push to main is the only thing that ships, so this workflow — not the
+# pull_request triggers on the ci-*.yml files — is what actually gates
+# production. Every commit in this repo's history so far went straight to
+# main with no PR, which means CI triggered on pull_request alone would
+# never once have run before a deploy. The four `verify-*` jobs below call
+# those same workflows via workflow_call so the checks run on the direct-to-
+# main path too, and `build-and-push` needs all four to pass first.
+#
+# Job order is deliberate:
+#   verify-*       — nothing is built until every service's tests pass
+#   build-and-push — images exist in the registry but nothing is live yet
+#   migrate        — schema is forward-compatible before new code can see it
+#   trigger-deploy — new code goes live, against an already-migrated schema
 jobs:
+  verify-api-gateway:
+    uses: ./.github/workflows/ci-api-gateway.yml
+  verify-frontend:
+    uses: ./.github/workflows/ci-frontend.yml
+  verify-ai-service:
+    uses: ./.github/workflows/ci-ai-service.yml
+  verify-worker:
+    uses: ./.github/workflows/ci-worker.yml
+  verify-security:
+    uses: ./.github/workflows/ci-security.yml
+
   build-and-push:
+    needs:
+      [verify-api-gateway, verify-frontend, verify-ai-service, verify-worker, verify-security]
     runs-on: ubuntu-latest
     # Needed to push images to GHCR under this repo's own namespace using
     # the built-in GITHUB_TOKEN — no separate registry credential required.
@@ -41,6 +68,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
+          # The :sha tag is what makes rollback possible — repoint Coolify at
+          # a previous commit's image. :latest alone would leave no way back.
           tags: |
             ghcr.io/${{ github.repository_owner }}/lingumentor-${{ matrix.image }}:latest
             ghcr.io/${{ github.repository_owner }}/lingumentor-${{ matrix.image }}:${{ github.sha }}
@@ -49,8 +78,66 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-  trigger-deploy:
+  # Alembic migrations were previously never applied by any automated path:
+  # the schema lived in apps/ai-service/alembic/versions/ and reached Neon
+  # only if someone remembered to run it by hand. The first deploy carrying a
+  # schema change would have shipped code querying columns that didn't exist.
+  migrate:
     needs: build-and-push
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ai-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: "2.4.1"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry venv
+        uses: actions/cache@v4
+        with:
+          path: apps/ai-service/.venv
+          key: ai-service-poetry-${{ runner.os }}-${{ hashFiles('apps/ai-service/poetry.lock') }}
+
+      - run: poetry install --no-root --sync
+
+      # ---------------------------------------------------------------
+      # ACTION REQUIRED (Frank): add a DATABASE_URL repository secret —
+      # Settings → Secrets and variables → Actions → New repository secret.
+      # Use the Neon connection string for the production branch.
+      #
+      # This step fails the deploy when that secret is missing rather than
+      # skipping with a warning, and that's deliberate: a pipeline that
+      # ships application code while quietly skipping its schema migration
+      # is the exact failure this job exists to prevent. Same fail-closed
+      # reasoning as ENFORCE_CALIBRATION_GATE in the gateway's env loader —
+      # a gate that defaults to off ships the thing it was built to stop.
+      #
+      # alembic/env.py reads DATABASE_URL directly and already rewrites a
+      # Neon libpq URL (postgresql://…?sslmode=require&channel_binding=…)
+      # into the asyncpg dialect's own form, so paste the string verbatim.
+      # ---------------------------------------------------------------
+      - name: Apply Alembic migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::DATABASE_URL secret is not set — refusing to deploy code without applying migrations. See the comments in .github/workflows/deploy.yml for setup steps."
+            exit 1
+          fi
+          poetry run alembic upgrade head
+
+  trigger-deploy:
+    needs: migrate
     runs-on: ubuntu-latest
     steps:
       # ---------------------------------------------------------------
@@ -64,6 +151,9 @@ jobs:
       #      paste the webhook URL as the value.
       # Until that secret exists, this step is a documented no-op — it
       # does not fail the workflow, it just skips the curl and says why.
+      # Unlike the migrate job above, skipping here is safe: a deploy that
+      # never fires leaves production untouched, whereas a skipped
+      # migration would let new code meet an old schema.
       # ---------------------------------------------------------------
       - name: Trigger Coolify/Dokploy deploy webhook
         env:

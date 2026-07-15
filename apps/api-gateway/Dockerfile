@@ -3,10 +3,18 @@
 # @lingumentor/shared-schemas (workspace:*), so a single-directory build
 # context can no longer see everything it needs to install.
 #
-# jose (RS256 JWT signing) requires Node >=20.19 — 20-slim currently
-# resolves to an older 20.x patch, so this stays on 22 rather than pin a
-# patch version that'll drift out from under us.
-FROM node:22-slim AS build
+# Node 24 = the current Active LTS; 22 dropped to Maintenance LTS (security
+# fixes only) in Oct 2025. Pinned to the major, not a patch, so security
+# patches arrive on rebuild without the tag drifting to a new major.
+# Kept in lockstep with .nvmrc, root package.json engines, and the Node CI
+# workflows — a runtime that only matches in three of those four places is
+# the kind of drift that surfaces as a container-only failure.
+#
+# This also clears jose's floor with room to spare: jose v6 (RS256 JWT
+# signing) is ESM-only and needs >=20.19, but declares no `engines` field,
+# so nothing fails the install on a too-old runtime — it throws at import
+# time, in the container, at boot.
+FROM node:24-slim AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -29,7 +37,7 @@ RUN pnpm --filter api-gateway build
 # monorepo, which is what makes it safe to copy into a minimal image.
 RUN pnpm --filter api-gateway deploy --prod /prod/api-gateway
 
-FROM node:22-slim AS runtime
+FROM node:24-slim AS runtime
 WORKDIR /app
 COPY --from=build /prod/api-gateway/dist ./dist
 COPY --from=build /prod/api-gateway/node_modules ./node_modules

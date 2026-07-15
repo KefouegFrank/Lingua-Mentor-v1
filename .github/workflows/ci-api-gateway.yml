@@ -4,19 +4,26 @@ on:
     paths:
       - "apps/api-gateway/**"
       - "packages/**"
+  # Callable by deploy.yml so a push to main runs these exact checks before
+  # anything is built or shipped. The `paths` filter above deliberately does
+  # not apply to a workflow_call: on the PR path it's a speed optimisation
+  # (skip unaffected services), but a deploy ships every service, so every
+  # service gets verified regardless of what the diff touched.
+  workflow_call:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # node-version-file, not a literal — see ci-frontend.yml for why.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: ".nvmrc"
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: ".nvmrc"
           cache: "pnpm"
 
       # --filter api-gateway... : matches the Dockerfile's own install

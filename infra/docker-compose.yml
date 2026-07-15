@@ -50,7 +50,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      # No curl/wget in node:22-slim (verified) — node's own http client is
+      # No curl/wget in node:24-slim (verified) — node's own http client is
       # already on PATH, so this avoids installing a package into the
       # runtime image just to run a health probe.
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]

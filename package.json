@@ -12,7 +12,7 @@
     "prepare": "husky"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "packageManager": "pnpm@9.0.0",
   "devDependencies": {

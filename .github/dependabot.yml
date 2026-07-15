@@ -1,0 +1,81 @@
+version: 2
+
+# Dependency updates for every ecosystem in this polyglot monorepo. Nothing
+# was watching dependencies before this file existed.
+#
+# Note this file only controls *version* update PRs. Vulnerability alerts and
+# automatic security-fix PRs are a separate repo setting:
+#   Settings → Advanced Security → enable "Dependabot alerts" and
+#   "Dependabot security updates".
+# Without those toggled on, this file will keep you current but will not
+# react to a CVE, which is the half that actually matters.
+#
+# Deliberately no `pnpm audit` / `pip-audit` step in CI: Dependabot alerts
+# cover the same ground across all four ecosystems and arrive as an
+# actionable PR rather than a red build with no fix attached. Two systems
+# doing one job is how one of them ends up ignored.
+updates:
+  # --- JS/TS: one entry covers the whole pnpm workspace ---
+  # (frontend, api-gateway, and packages/* all resolve through the root
+  # lockfile, so Dependabot reads the workspace from here.)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # Patch/minor churn from a dozen small packages is the fastest way to
+      # train yourself to rubber-stamp Dependabot PRs without reading them.
+      # Grouping them into one PR per week keeps each PR worth reviewing;
+      # majors stay separate because those are the ones that break builds.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      # Matches the scope-enum in commitlint.config.js — an ungrouped
+      # Dependabot commit would otherwise fail the commit-msg hook on merge.
+      prefix: "chore(deps)"
+
+  # --- Python: poetry.lock per service ---
+  - package-ecosystem: "pip"
+    directory: "/apps/ai-service"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "pip"
+    directory: "/apps/worker"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # --- Base images: node:24-slim / python:3.12-slim ---
+  # These carry OS-level CVEs that no application-dependency scanner sees.
+  - package-ecosystem: "docker"
+    directories:
+      - "/apps/api-gateway"
+      - "/apps/ai-service"
+      - "/apps/worker"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # --- The CI pipeline's own supply chain ---
+  # A compromised or abandoned third-party action runs with access to this
+  # repo's GITHUB_TOKEN and secrets, so it gets watched like any other dep.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
