@@ -2,7 +2,7 @@
 # stage does the (slow, toolchain-heavy) dependency resolution, and the
 # runtime stage carries only what's needed to actually run the service.
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app
 
 # Poetry itself is build-time tooling — it never needs to exist in the
@@ -28,7 +28,7 @@ RUN poetry install --only main --no-root
 
 COPY app ./app
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 WORKDIR /app
 
 # Dedicated non-root user — the builder stage above still runs as root
