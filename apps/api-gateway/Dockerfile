@@ -14,7 +14,7 @@
 # signing) is ESM-only and needs >=20.19, but declares no `engines` field,
 # so nothing fails the install on a too-old runtime — it throws at import
 # time, in the container, at boot.
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -37,7 +37,7 @@ RUN pnpm --filter api-gateway build
 # monorepo, which is what makes it safe to copy into a minimal image.
 RUN pnpm --filter api-gateway deploy --prod /prod/api-gateway
 
-FROM node:24-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /app
 COPY --from=build /prod/api-gateway/dist ./dist
 COPY --from=build /prod/api-gateway/node_modules ./node_modules
