@@ -46,7 +46,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 		res = await fetch(`${BASE_URL}${path}`, {
 			...init,
 			credentials: "include",
-			headers: { "content-type": "application/json", ...(init.headers ?? {}) },
+			headers: {
+				// Only declare a JSON body when one is actually being sent.
+				// Fastify rejects `content-type: application/json` with an empty
+				// body (FST_ERR_CTP_EMPTY_JSON_BODY) — which is exactly what the
+				// bodyless POSTs here (/auth/refresh, /auth/logout) would send if
+				// this header were unconditional.
+				...(init.body != null ? { "content-type": "application/json" } : {}),
+				...(init.headers ?? {}),
+			},
 		});
 	} catch {
 		// DNS/connection failure/CORS block — the gateway is unreachable, not
@@ -62,10 +70,16 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 let refreshInFlight: Promise<AuthSession> | null = null;
 
 /** Refreshes the access token using the httpOnly refresh cookie. Concurrent
- * callers (e.g. three widgets 401-ing at once on an expired token) share one
- * in-flight refresh instead of each rotating the refresh token and
- * invalidating each other's attempt. */
-function refreshSession(): Promise<AuthSession> {
+ * callers — three widgets 401-ing at once on an expired token, or React 18
+ * Strict Mode's double-invoked mount effect racing the session-bootstrap
+ * hook against itself — share one in-flight refresh instead of each
+ * rotating the token and invalidating each other's attempt. The refresh
+ * token is single-use (server-side GETDEL rotation), so a genuine second
+ * network call here would always lose that race with a real error; every
+ * caller that needs a fresh session (401-retry below, and the bootstrap
+ * hook on app load) must go through this shared entry point, never call
+ * POST /auth/refresh directly. */
+export function refreshSession(): Promise<AuthSession> {
 	if (!refreshInFlight) {
 		refreshInFlight = apiFetch<AuthSession>("/api/v1/auth/refresh", { method: "POST" }).finally(() => {
 			refreshInFlight = null;

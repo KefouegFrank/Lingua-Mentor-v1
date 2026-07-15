@@ -44,6 +44,24 @@ function isZodError(err: unknown): err is { name: "ZodError"; issues: ZodIssue[]
 }
 
 /**
+ * A Fastify-generated error that blames the request, not the server — it
+ * carries both an `FST_*` code and its own 4xx status. Checked structurally
+ * (like isZodError above) rather than with `instanceof`, for the same
+ * module-duplication reasons.
+ */
+function isClientFastifyError(err: unknown): err is FastifyError & { statusCode: number } {
+	if (typeof err !== "object" || err === null) return false;
+	const { code, statusCode } = err as { code?: unknown; statusCode?: unknown };
+	return (
+		typeof code === "string" &&
+		code.startsWith("FST_") &&
+		typeof statusCode === "number" &&
+		statusCode >= 400 &&
+		statusCode < 500
+	);
+}
+
+/**
  * Called directly from buildApp rather than via app.register: Fastify v5
  * encapsulates setErrorHandler/setNotFoundHandler to the registering plugin's
  * scope, and this envelope must apply to every route in the app.
@@ -62,6 +80,16 @@ export function registerErrorEnvelope(app: FastifyInstance): void {
 		}
 		if (err instanceof Error && "validation" in err && (err as FastifyError).validation) {
 			return reply.status(400).send(envelope("VALIDATION_ERROR", err.message));
+		}
+		// Fastify's own request-level errors — malformed JSON, a JSON
+		// content-type with an empty body, payload too large — already carry an
+		// accurate 4xx status and a machine-readable FST_* code. They describe a
+		// bad request, not a server fault, so they must not fall through to the
+		// 500 branch below: reporting a client mistake as "internal server
+		// error" sends whoever is debugging it in exactly the wrong direction.
+		// 5xx FST_* codes are genuine server faults and deliberately fall through.
+		if (isClientFastifyError(err)) {
+			return reply.status(err.statusCode).send(envelope(err.code, err.message));
 		}
 		// Unknown error: log the real thing, never leak internals to the client.
 		request.log.error({ err }, "unhandled error");

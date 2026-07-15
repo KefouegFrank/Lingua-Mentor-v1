@@ -3,8 +3,13 @@
 # per deployment patch §3.1 (Neon branching also gives you free per-feature DB branches locally).
 version: "3.9"
 services:
+  # restart: unless-stopped on every service — a container that dies to a
+  # host OOM event (observed on this machine: Redis was killed mid-session
+  # with no graceful shutdown in its own log) comes back on its own instead
+  # of silently leaving the stack half-up until someone notices.
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -17,6 +22,7 @@ services:
     build:
       context: ..
       dockerfile: apps/api-gateway/Dockerfile
+    restart: unless-stopped
     env_file: ../apps/api-gateway/.env
     volumes:
       # JWT keys (scripts/generate-jwt-keys.sh) are mounted, never baked
@@ -29,6 +35,7 @@ services:
 
   ai-service:
     build: ../apps/ai-service
+    restart: unless-stopped
     env_file: ../apps/ai-service/.env
     ports:
       - "8000:8000"
@@ -37,6 +44,7 @@ services:
 
   worker:
     build: ../apps/worker
+    restart: unless-stopped
     env_file: ../apps/worker/.env
     depends_on:
       - redis

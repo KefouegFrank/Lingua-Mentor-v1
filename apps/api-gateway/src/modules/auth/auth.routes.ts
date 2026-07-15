@@ -21,7 +21,12 @@ import {
 function setRefreshCookie(reply: FastifyReply, token: string): void {
 	reply.setCookie(REFRESH_COOKIE_NAME, token, {
 		httpOnly: true,
-		secure: true,
+		// A `Secure` cookie is silently dropped by the browser on a plain-HTTP
+		// response — unconditional `true` here made session restore (the
+		// silent-refresh-on-reload flow) permanently unable to work in local
+		// dev, since the gateway serves over http://localhost. Real browsers
+		// don't surface this as an error; the cookie just never gets stored.
+		secure: process.env.NODE_ENV === "production",
 		sameSite: "strict",
 		path: REFRESH_COOKIE_PATH,
 		maxAge: REFRESH_TOKEN_TTL_SECONDS,

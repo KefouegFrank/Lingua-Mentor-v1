@@ -1,3 +1,4 @@
+import { Slot } from "@radix-ui/react-slot";
 import { Loader2 } from "lucide-react";
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -34,12 +35,25 @@ export interface ButtonProps
 		VariantProps<typeof buttonVariants> {
 	/** Shows a spinner in place of the icon slot and disables the button —
 	 * the one loading affordance every submit button in the app should use,
-	 * so "is this button doing something" always looks the same. */
+	 * so "is this button doing something" always looks the same. Ignored
+	 * when `asChild` is set — a nav link has no pending-mutation state. */
 	isLoading?: boolean;
+	/** Render the button's styles onto its child element (e.g. next/link)
+	 * instead of a <button>, via Radix Slot — the standard way to get a
+	 * button-styled link without either nesting an interactive element
+	 * inside another or duplicating buttonVariants() at every call site. */
+	asChild?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-	({ className, variant, size, isLoading, disabled, children, ...props }, ref) => {
+	({ className, variant, size, isLoading, disabled, asChild, children, ...props }, ref) => {
+		if (asChild) {
+			return (
+				<Slot ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props}>
+					{children}
+				</Slot>
+			);
+		}
 		return (
 			<button
 				ref={ref}

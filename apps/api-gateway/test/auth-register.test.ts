@@ -71,7 +71,7 @@ describe("POST /api/v1/auth/register", () => {
 		expect(ttl).toBe(REFRESH_TOKEN_TTL_SECONDS);
 	});
 
-	it("sets the refresh cookie httpOnly, secure, sameSite=Strict, scoped to /api/v1/auth", async () => {
+	it("sets the refresh cookie httpOnly, sameSite=Strict, scoped to /api/v1/auth", async () => {
 		const { app } = await buildTestApp({ db: dbWithInsertSuccess() });
 
 		const res = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: VALID_BODY });
@@ -79,10 +79,40 @@ describe("POST /api/v1/auth/register", () => {
 		const cookie = res.cookies.find((c) => c.name === REFRESH_COOKIE_NAME);
 		expect(cookie).toBeDefined();
 		expect(cookie?.httpOnly).toBe(true);
-		expect(cookie?.secure).toBe(true);
 		expect(cookie?.sameSite).toBe("Strict");
 		expect(cookie?.path).toBe(REFRESH_COOKIE_PATH);
 		expect(cookie?.maxAge).toBe(REFRESH_TOKEN_TTL_SECONDS);
+	});
+
+	it("marks the refresh cookie secure in production but not otherwise", async () => {
+		// A `Secure` cookie is silently dropped by the browser on a plain-HTTP
+		// response — unconditional `true` made session restore permanently
+		// broken in local dev, where the gateway serves over http://localhost.
+		const originalEnv = process.env.NODE_ENV;
+		try {
+			process.env.NODE_ENV = "production";
+			const prodApp = await buildTestApp({ db: dbWithInsertSuccess() });
+			const prodRes = await prodApp.app.inject({
+				method: "POST",
+				url: "/api/v1/auth/register",
+				payload: VALID_BODY,
+			});
+			expect(prodRes.cookies.find((c) => c.name === REFRESH_COOKIE_NAME)?.secure).toBe(true);
+
+			process.env.NODE_ENV = "development";
+			const devApp = await buildTestApp({ db: dbWithInsertSuccess() });
+			const devRes = await devApp.app.inject({
+				method: "POST",
+				url: "/api/v1/auth/register",
+				payload: VALID_BODY,
+			});
+			// The cookie parser represents an *absent* Secure flag as undefined,
+			// not false — either is "not secure"; toBeFalsy() covers both rather
+			// than pinning to one specific representation of "off".
+			expect(devRes.cookies.find((c) => c.name === REFRESH_COOKIE_NAME)?.secure).toBeFalsy();
+		} finally {
+			process.env.NODE_ENV = originalEnv;
+		}
 	});
 
 	it("issues an access token with a 15-minute lifetime and the right claims", async () => {
