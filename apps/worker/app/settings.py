@@ -13,7 +13,9 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    required = {name: os.environ.get(name) for name in ("REDIS_URL", "DATABASE_URL", "AI_SERVICE_URL")}
+    required = {
+        name: os.environ.get(name) for name in ("REDIS_URL", "DATABASE_URL", "AI_SERVICE_URL")
+    }
     missing = sorted(name for name, value in required.items() if not value)
     if missing:
         raise RuntimeError(f"missing required environment variables: {', '.join(missing)}")

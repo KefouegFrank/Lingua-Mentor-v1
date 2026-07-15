@@ -31,7 +31,9 @@ def _print_report(result) -> None:
         print("  inter-rater reliability    : n/a (need >= 2 essays)")
     else:
         flag = "PASS" if result.irr_gate_passed else "FAIL"
-        print(f"  inter-rater reliability (r): {result.irr_overall:.4f}  (gate {IRR_GATE}) [{flag}]")
+        print(
+            f"  inter-rater reliability (r): {result.irr_overall:.4f}  (gate {IRR_GATE}) [{flag}]"
+        )
     for key, r in sorted(result.irr_per_category.items()):
         print(f"    {key:<28}: {r:.4f}")
 
@@ -41,7 +43,10 @@ def _print_report(result) -> None:
             f"Lead Examiner must clear before sign-off: {', '.join(result.spot_review_ids)}"
         )
     if result.adjudicated_ids:
-        print(f"  adjudicated (>1.0 band)   : {len(result.adjudicated_ids)} — {', '.join(result.adjudicated_ids)}")
+        print(
+            f"  adjudicated (>1.0 band)   : {len(result.adjudicated_ids)} — "
+            f"{', '.join(result.adjudicated_ids)}"
+        )
     if result.excluded:
         print(f"  EXCLUDED (unresolved)     : {len(result.excluded)}")
         for ex in result.excluded:

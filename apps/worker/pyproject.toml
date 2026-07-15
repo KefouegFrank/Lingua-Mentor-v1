@@ -15,6 +15,8 @@ httpx = "^0.28"         # calls ai-service internal endpoints; engines live ther
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
 pytest-asyncio = "^0.25"
+ruff = "^0.8"
+mypy = "^1.13"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -23,3 +25,25 @@ testpaths = ["tests"]
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# Matches apps/ai-service's starter set: pyflakes (unused imports/vars,
+# undefined names), pycodestyle, isort, pyupgrade for a 3.12-only codebase.
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Wide inline dict/fixture literals in tests read better on one line than
+# wrapped — same rationale as ai-service's test config.
+"tests/**/*.py" = ["F401", "F811", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = false

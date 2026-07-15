@@ -6,7 +6,7 @@ calibration_version from.
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -27,7 +27,7 @@ async def _insert(db_conn, *, version, exam="ielts_academic", pearson=0.88, when
         category_pearson=json.dumps({"task_response": 0.86}),
         human_examiner_count=2,
         inter_rater_kappa=kappa,
-        calibration_date=when or datetime.now(timezone.utc),
+        calibration_date=when or datetime.now(UTC),
         signed_off_by="Lead Examiner",
     )
 
@@ -43,7 +43,7 @@ async def test_insert_and_get_active(db_conn):
 
 
 async def test_get_active_returns_latest_version(db_conn):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     await _insert(db_conn, version="v1.0-launch", pearson=0.86, when=now - timedelta(days=30))
     await _insert(db_conn, version="v1.1-tuned", pearson=0.90, when=now)
     row = await calibration_repository.get_active_baseline(db_conn, "ielts_academic")

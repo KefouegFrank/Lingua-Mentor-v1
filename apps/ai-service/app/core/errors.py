@@ -41,7 +41,9 @@ def register_error_handlers(app: FastAPI) -> None:
         field = ".".join(str(loc) for loc in first.get("loc", []) if loc != "body")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=envelope("VALIDATION_ERROR", first.get("msg", "invalid request"), field or None),
+            content=envelope(
+                "VALIDATION_ERROR", first.get("msg", "invalid request"), field or None
+            ),
         )
 
     @app.exception_handler(UnknownExamError)

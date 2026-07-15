@@ -129,7 +129,10 @@ def resolve_consensus(essay: RawGradedEssay) -> Consensus:
         if not essay.adjudicated or essay.adjudicator_overall is None:
             return Consensus(
                 status="excluded",
-                reason=f"graders diverge by {max_gap} band (>1.0) — adjudication required but absent",
+                reason=(
+                    f"graders diverge by {max_gap} band (>1.0) — "
+                    "adjudication required but absent"
+                ),
             )
         # Drop the outlier: reconcile the adjudicator with the nearer rater.
         adj = essay.adjudicator_overall
@@ -192,7 +195,9 @@ def _compute_irr(essays: list[RawGradedEssay]) -> tuple[float | None, dict[str, 
         [float(e.rater_2_overall) for e in essays],
     )
     per_category: dict[str, float] = {}
-    all_keys = sorted({k for e in essays for k in (set(e.rater_1_categories) & set(e.rater_2_categories))})
+    all_keys = sorted(
+        {k for e in essays for k in (set(e.rater_1_categories) & set(e.rater_2_categories))}
+    )
     for key in all_keys:
         pairs = [
             (float(e.rater_1_categories[key]), float(e.rater_2_categories[key]))
@@ -212,7 +217,13 @@ def ingest(records: list[dict]) -> IngestionResult:
         normalized = normalize_exam_type(raw.get("exam_type", ""))
         reason = _defer_reason(normalized, raw)
         if reason is not None:
-            deferred.append({"essay_id": raw.get("essay_id"), "exam_type": raw.get("exam_type"), "reason": reason})
+            deferred.append(
+                {
+                    "essay_id": raw.get("essay_id"),
+                    "exam_type": raw.get("exam_type"),
+                    "reason": reason,
+                }
+            )
             continue
         essay = RawGradedEssay.model_validate(raw)
         essay.exam_type = normalized

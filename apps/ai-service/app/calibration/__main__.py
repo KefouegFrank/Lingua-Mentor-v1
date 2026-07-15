@@ -25,7 +25,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import asyncpg
@@ -165,7 +165,7 @@ async def _persist_baseline(report, args) -> None:
                 category_pearson=json.dumps(report.category_pearson),
                 human_examiner_count=args.examiner_count,
                 inter_rater_kappa=args.kappa,
-                calibration_date=datetime.now(timezone.utc),
+                calibration_date=datetime.now(UTC),
                 signed_off_by=args.signed_off_by,
             )
     finally:
@@ -183,7 +183,8 @@ def main() -> int:
         help="promote a passing single-exam run to a signed-off calibration baseline",
     )
     parser.add_argument(
-        "--calibration-version", help="baseline version tag, e.g. v1.0-launch (required with --persist)"
+        "--calibration-version",
+        help="baseline version tag, e.g. v1.0-launch (required with --persist)",
     )
     parser.add_argument(
         "--signed-off-by", help="who accepted the Go/No-Go (calibration_baselines.signed_off_by)"
@@ -194,7 +195,9 @@ def main() -> int:
         help="human examiners behind the consensus scores (required with --persist)",
     )
     parser.add_argument(
-        "--kappa", type=float, help="human-human inter-rater kappa for the dataset (Brief §6.1, >= 0.80)"
+        "--kappa",
+        type=float,
+        help="human-human inter-rater kappa for the dataset (Brief §6.1, >= 0.80)",
     )
     parser.add_argument(
         "--drift-check",

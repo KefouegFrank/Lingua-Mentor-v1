@@ -5,7 +5,7 @@ drift in calibration comparisons (PRD §28.2).
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -88,7 +88,7 @@ async def save_score(
             overall_band_score,
             cefr_level,
             calibration_version,
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
         )
         await conn.execute(
             """

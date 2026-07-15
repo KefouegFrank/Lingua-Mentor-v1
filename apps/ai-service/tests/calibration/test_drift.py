@@ -1,7 +1,7 @@
 """Drift-check tests (PRD §27.2) — comparison against a real baselines table."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -36,7 +36,7 @@ async def _insert_baseline(db_conn, exam_type: str, pearson: float) -> None:
         category_pearson=json.dumps({}),
         human_examiner_count=2,
         inter_rater_kappa=0.85,
-        calibration_date=datetime.now(timezone.utc),
+        calibration_date=datetime.now(UTC),
         signed_off_by="test",
     )
 

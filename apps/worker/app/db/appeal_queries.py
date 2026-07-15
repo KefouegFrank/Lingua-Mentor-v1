@@ -8,7 +8,7 @@ Band scores are NUMERIC(4,2) — pass Decimal, never float (PRD §28.2).
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -72,5 +72,5 @@ async def save_resolution(
         discrepancy_delta,
         requires_human_review,
         json.dumps(secondary_model_config) if secondary_model_config is not None else None,
-        datetime.now(timezone.utc),
+        datetime.now(UTC),
     )
