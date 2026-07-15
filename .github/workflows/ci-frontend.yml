@@ -9,4 +9,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # TODO: pnpm setup, install, lint, test, build — mirror api-gateway workflow structure
+
+      # Node 22, not the >=20 floor in root package.json's engines field —
+      # matches api-gateway's Dockerfile, which pins 22 because jose (RS256
+      # signing) needs >=20.19 and 20-slim currently resolves older.
+      # Two setup-node steps: corepack (which reads the packageManager
+      # field, pnpm@9.0.0) has to be enabled before cache: 'pnpm' can find
+      # pnpm on PATH to resolve the store location.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      # --filter frontend... : frontend plus the workspace packages it
+      # depends on (@lingumentor/shared-schemas), same convention the
+      # api-gateway Dockerfile uses for its own filter.
+      - run: pnpm install --frozen-lockfile --filter frontend...
+
+      # shared-schemas is consumed as source-built workspace:* — build it
+      # before frontend's own steps need it (typecheck/build resolve it via
+      # the workspace symlink, not a published package).
+      - run: pnpm --filter @lingumentor/shared-schemas build
+
+      - run: pnpm --filter frontend lint
+      - run: pnpm --filter frontend typecheck
+      - run: pnpm --filter frontend test
+      - run: pnpm --filter frontend build

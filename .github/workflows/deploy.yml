@@ -3,10 +3,74 @@ on:
   push:
     branches: [main]
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
+    # Needed to push images to GHCR under this repo's own namespace using
+    # the built-in GITHUB_TOKEN — no separate registry credential required.
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          # api-gateway's build context is the repo root (see its
+          # Dockerfile) because it needs to see the workspace package
+          # @lingumentor/shared-schemas, not just its own directory.
+          - image: api-gateway
+            context: .
+            dockerfile: apps/api-gateway/Dockerfile
+          - image: ai-service
+            context: apps/ai-service
+            dockerfile: apps/ai-service/Dockerfile
+          - image: worker
+            context: apps/worker
+            dockerfile: apps/worker/Dockerfile
     steps:
       - uses: actions/checkout@v4
-      # TODO: build Docker images for api-gateway, ai-service, worker
-      # TODO: push to registry, trigger Coolify/Dokploy webhook per
-      #       docs/architecture/adr/0001-deployment-architecture-patch-v1.md §4.4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/lingumentor-${{ matrix.image }}:latest
+            ghcr.io/${{ github.repository_owner }}/lingumentor-${{ matrix.image }}:${{ github.sha }}
+          # GitHub Actions cache backend — reuses layers across runs without
+          # a separate registry round trip for cache manifests.
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  trigger-deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      # ---------------------------------------------------------------
+      # ACTION REQUIRED (Frank): this step is a placeholder. Before it
+      # will do anything:
+      #   1. In Coolify (or Dokploy), find/create the deploy webhook for
+      #      this app per ADR 0001 §4.4 (GitHub Actions → Docker build →
+      #      Coolify/Dokploy webhook).
+      #   2. In this repo: Settings → Secrets and variables → Actions →
+      #      "New repository secret", name it COOLIFY_WEBHOOK_URL, and
+      #      paste the webhook URL as the value.
+      # Until that secret exists, this step is a documented no-op — it
+      # does not fail the workflow, it just skips the curl and says why.
+      # ---------------------------------------------------------------
+      - name: Trigger Coolify/Dokploy deploy webhook
+        env:
+          COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+        run: |
+          if [ -z "${COOLIFY_WEBHOOK_URL}" ]; then
+            echo "::warning::COOLIFY_WEBHOOK_URL secret is not set — skipping deploy trigger. See comments in .github/workflows/deploy.yml for setup steps."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "${COOLIFY_WEBHOOK_URL}"

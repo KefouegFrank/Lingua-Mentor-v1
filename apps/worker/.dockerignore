@@ -1,0 +1,15 @@
+# See apps/ai-service/.dockerignore for the rationale — same pattern.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+
+.env
+.env.*
+!.env.example
+
+.git/
+README.md

@@ -1,5 +1,15 @@
 # Production compose file for the single VPS (deployment patch §5).
 # Redis is self-hosted here; Postgres is external (Neon) and reached over the network.
+#
+# Resource limits sized for a Hetzner CX 4vCPU/8GB box, the ADR 0001 §2.1
+# starting tier: redis 0.5 cpu/512m + api-gateway 1.0 cpu/512m + ai-service
+# 1.5 cpu/1024m + worker 1.0 cpu/768m = 4.0 cpu / ~2.8GB committed, leaving
+# the remaining ~5GB and CPU headroom for the host OS, Neon's connection
+# pool overhead, and burst traffic rather than pinning the box to its
+# ceiling at idle. ai-service gets the largest share — it's the only
+# container doing async LLM request/response buffering and holding its own
+# asyncpg pool against Neon; api-gateway is a single lightweight Node
+# process (ADR 0001 §2.2) so it gets the least.
 version: "3.9"
 services:
   redis:
@@ -8,27 +18,72 @@ services:
     volumes:
       - redis-data:/data
     command: ["redis-server", "--appendonly", "yes"]   # AOF persistence, per §3.3/§8.2
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    mem_limit: 512m
+    cpus: 0.5
 
   api-gateway:
-    build: ../apps/api-gateway
+    # Root context, not ../apps/api-gateway (which this file used
+    # incorrectly before) — the Dockerfile needs to see the workspace
+    # package @lingumentor/shared-schemas, exactly as docker-compose.yml
+    # (dev) already does it correctly. Without this the prod build fails:
+    # the Dockerfile's `COPY packages/shared-schemas/package.json ...`
+    # has nothing to find with apps/api-gateway as the context root.
+    build:
+      context: ..
+      dockerfile: apps/api-gateway/Dockerfile
     env_file: ../apps/api-gateway/.env.production
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    mem_limit: 512m
+    cpus: 1.0
 
   ai-service:
     build: ../apps/ai-service
     env_file: ../apps/ai-service/.env.production
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    mem_limit: 1024m
+    cpus: 1.5
 
   worker:
     build: ../apps/worker
     env_file: ../apps/worker/.env.production
     restart: unless-stopped
     depends_on:
-      - redis
+      # Cold-boot race this closes: without health-gating, worker could
+      # start pulling jobs before ai-service can serve /api/v1/* yet,
+      # failing real jobs into retry/dead-letter on first boot.
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    # No healthcheck: block — see docker-compose.yml (dev) for why; same
+    # reasoning applies here (image-level process-liveness HEALTHCHECK,
+    # nothing depends on worker's own health).
+    mem_limit: 768m
+    cpus: 1.0
 
 volumes:
   redis-data:

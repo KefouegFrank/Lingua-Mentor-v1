@@ -1,0 +1,21 @@
+# Keeps the build context (and therefore what COPY can ever see) free of
+# anything that shouldn't end up baked into an image layer, and free of
+# local dev cruft that would otherwise bust Docker's layer cache for no
+# reason.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+
+# Secrets and runtime-mounted material — never baked into the image, same
+# rule api-gateway's Dockerfile already follows for its JWT keys.
+.env
+.env.*
+!.env.example
+keys/
+
+.git/
+README.md

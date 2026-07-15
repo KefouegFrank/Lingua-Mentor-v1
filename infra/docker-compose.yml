@@ -1,6 +1,12 @@
 # Local development compose file.
 # Postgres is NOT included here — connect to a Neon dev branch instead,
 # per deployment patch §3.1 (Neon branching also gives you free per-feature DB branches locally).
+#
+# Resource limits (mem_limit/cpus) mirror docker-compose.prod.yml's sizing
+# for a Hetzner CX 4vCPU/8GB box (ADR 0001 §2.1) even though this file runs
+# on a dev machine, not the VPS — keeping the two in parity means a local
+# run surfaces a memory regression before it ever reaches prod, rather than
+# local dev having a silently more generous ceiling than what's deployed.
 version: "3.9"
 services:
   # restart: unless-stopped on every service — a container that dies to a
@@ -14,6 +20,16 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    # Lightest of the four — in-memory KV + AOF write, no request parsing
+    # or LLM-adjacent work.
+    mem_limit: 512m
+    cpus: 0.5
 
   api-gateway:
     # Root context, not ../apps/api-gateway — it depends on the workspace
@@ -31,7 +47,21 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # No curl/wget in node:22-slim (verified) — node's own http client is
+      # already on PATH, so this avoids installing a package into the
+      # runtime image just to run a health probe.
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    # Single Node process (ADR 0001 §2.2), no LLM/DB-heavy work of its own —
+    # the lightest of the three app containers.
+    mem_limit: 512m
+    cpus: 1.0
 
   ai-service:
     build: ../apps/ai-service
@@ -40,15 +70,42 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Matches the HEALTHCHECK baked into apps/ai-service/Dockerfile —
+      # declared explicitly here too so `depends_on: condition:
+      # service_healthy` below has something to gate on without relying on
+      # Compose picking up the image-level default.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    # Heaviest single container: async FastAPI + LLM request/response
+    # payloads + its own asyncpg pool (db_pool_max_size=10) against Neon.
+    mem_limit: 1024m
+    cpus: 1.5
 
   worker:
     build: ../apps/worker
     restart: unless-stopped
     env_file: ../apps/worker/.env
     depends_on:
-      - redis
-      - ai-service
+      # Not just "started" — a worker that starts pulling jobs off Redis
+      # before ai-service can actually serve /api/v1/* yet will fail its
+      # first evaluation calls and dead-letter or retry-storm real jobs.
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    # No healthcheck: block here — worker has no HTTP surface to probe.
+    # apps/worker/Dockerfile bakes in a process-liveness HEALTHCHECK
+    # (checks /proc/1/cmdline for the worker process), which Compose picks
+    # up automatically from the image; nothing currently depends on
+    # worker's own health so there's no condition to gate here either.
+    mem_limit: 768m
+    cpus: 1.0
 
 volumes:
   redis-data:

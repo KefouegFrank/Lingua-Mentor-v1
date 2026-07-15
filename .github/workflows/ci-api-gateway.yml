@@ -9,4 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # TODO: pnpm setup, install, lint, test, build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      # --filter api-gateway... : matches the Dockerfile's own install
+      # filter — pulls in @lingumentor/shared-schemas, the workspace
+      # dependency api-gateway needs built before it can typecheck/build.
+      - run: pnpm install --frozen-lockfile --filter api-gateway...
+
+      - run: pnpm --filter @lingumentor/shared-schemas build
+
+      - run: pnpm --filter api-gateway lint
+      - run: pnpm --filter api-gateway test
+      # api-gateway has no separate typecheck script — `tsc` (its build
+      # step) does the type check as part of compiling to dist/.
+      - run: pnpm --filter api-gateway build

@@ -6,6 +6,39 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ai-service
     steps:
       - uses: actions/checkout@v4
-      # TODO: poetry setup, install, ruff/mypy lint, pytest
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: "2.4.1" # matches the sandbox's verified poetry version
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      # Cache keyed on the lockfile hash: any dependency change (including
+      # a stray drift between pyproject.toml and poetry.lock) busts the
+      # cache instead of silently reusing a stale venv.
+      - name: Cache Poetry venv
+        uses: actions/cache@v4
+        with:
+          path: apps/ai-service/.venv
+          key: ai-service-poetry-${{ runner.os }}-${{ hashFiles('apps/ai-service/poetry.lock') }}
+
+      # --no-root: this project has no [project]/packages layout for
+      # poetry's package mode (it's run via `uvicorn app.main:app`, not
+      # imported as an installed package) — installing the root package
+      # fails with "No file/folder found for package ai-service" without
+      # this flag. The Dockerfile already installs the same way.
+      - run: poetry install --no-root --sync
+
+      - run: poetry run ruff check .
+      - run: poetry run mypy app
+      - run: poetry run pytest -q
