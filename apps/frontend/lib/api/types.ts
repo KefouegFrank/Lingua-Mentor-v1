@@ -44,6 +44,17 @@ export interface CefrProfile {
 	writing: CefrDimension;
 }
 
+/** The placement essay task. Server-owned: the client renders `prompt_text` but
+ * only ever sends `task_id` back, so it can't choose what it's scored on. */
+export interface PlacementTask {
+	exam_type: string;
+	display_name: string;
+	task_name: string;
+	task_id: string;
+	prompt_text: string;
+	word_count_min: number;
+}
+
 export interface ExamRubricCategory {
 	key: string;
 	name: string;

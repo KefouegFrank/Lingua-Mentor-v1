@@ -1,6 +1,6 @@
-// Placement submission: resolve the target exam, hand the essay to ai-service,
-// return the initialized 4D CEFR profile. Scoring logic lives in ai-service.
-import type { AiServiceClient, CefrProfileDto } from "../../clients/ai-service";
+// Placement: hand the learner the exam's task, then score their essay against
+// it. The prompt is server-owned — scoring logic lives in ai-service.
+import type { AiServiceClient, CefrProfileDto, PlacementTaskDto } from "../../clients/ai-service";
 import type { DbClient } from "../../db/client";
 import { AppError } from "../../plugins/error-envelope";
 
@@ -11,27 +11,29 @@ export interface PlacementDeps {
 
 export interface PlacementInput {
 	learnerProfileId: string;
-	promptText: string;
+	taskId: string;
 	essayText: string;
 }
 
-export async function submitPlacement(
+// Both routes resolve through here, so the test can't be handed out on terms
+// the submit would then refuse.
+async function resolveTargetExam(
 	deps: PlacementDeps,
-	input: PlacementInput,
+	learnerProfileId: string,
 	enforceCalibrationGate: boolean,
-): Promise<CefrProfileDto> {
+): Promise<string> {
 	// Scored against the target exam's rubric — no target exam, no rubric.
 	const { rows } = await deps.db.query(
 		`SELECT target_exam FROM learner_profiles WHERE id = $1`,
-		[input.learnerProfileId],
+		[learnerProfileId],
 	);
 	const targetExam = rows[0]?.target_exam;
 	if (!targetExam) {
 		throw new AppError(400, "NO_TARGET_EXAM", "set a target exam before taking the placement test");
 	}
 
-	// Phase 0 gate (PRD §60): refuse before the LLM call, not after, so nothing
-	// uncalibrated is stored and no tokens go to a result we'd refuse to show.
+	// Phase 0 gate (PRD §60): refuse before the learner writes anything, rather
+	// than take a 250-word essay and then decline to score it.
 	if (enforceCalibrationGate) {
 		const baseline = await deps.db.query(
 			`SELECT 1 FROM calibration_baselines
@@ -49,11 +51,28 @@ export async function submitPlacement(
 			);
 		}
 	}
+	return String(targetExam);
+}
 
+export async function getPlacementTask(
+	deps: PlacementDeps,
+	learnerProfileId: string,
+	enforceCalibrationGate: boolean,
+): Promise<PlacementTaskDto> {
+	const examType = await resolveTargetExam(deps, learnerProfileId, enforceCalibrationGate);
+	return deps.aiService.getPlacementTask(examType);
+}
+
+export async function submitPlacement(
+	deps: PlacementDeps,
+	input: PlacementInput,
+	enforceCalibrationGate: boolean,
+): Promise<CefrProfileDto> {
+	const examType = await resolveTargetExam(deps, input.learnerProfileId, enforceCalibrationGate);
 	return deps.aiService.evaluatePlacement({
 		learnerProfileId: input.learnerProfileId,
-		examType: String(targetExam),
-		promptText: input.promptText,
+		examType,
+		taskId: input.taskId,
 		essayText: input.essayText,
 	});
 }

@@ -1,8 +1,12 @@
 import { authenticatedFetch } from "@/lib/api/client";
-import type { CefrProfile } from "@/lib/api/types";
+import type { CefrProfile, PlacementTask } from "@/lib/api/types";
+
+export function getPlacementTask(): Promise<PlacementTask> {
+	return authenticatedFetch<PlacementTask>("/api/v1/placement/task");
+}
 
 export interface SubmitPlacementInput {
-	prompt_text: string;
+	task_id: string;
 	essay_text: string;
 }
 

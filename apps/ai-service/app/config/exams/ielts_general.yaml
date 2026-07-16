@@ -59,3 +59,14 @@ writing:
     - { cefr: B2, min_score: 5.5 }
     - { cefr: C1, min_score: 7.0 }
     - { cefr: C2, min_score: 8.5 }
+
+# General Training Task 2 sets an everyday topic rather than an academic one.
+placement:
+  task_id: ielts_general_placement_v1
+  word_count_min: 250
+  prompt_text: >
+    In many countries people are working longer hours and have less free time
+    than they did in the past.
+
+    What are the causes of this, and what effects does it have on individuals
+    and on society?

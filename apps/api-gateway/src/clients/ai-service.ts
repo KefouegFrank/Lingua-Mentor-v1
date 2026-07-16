@@ -20,8 +20,19 @@ export interface CefrProfileDto {
 export interface EvaluatePlacementInput {
 	learnerProfileId: string;
 	examType: string;
-	promptText: string;
+	// Only the id travels — ai-service reads the prompt from the exam config, so
+	// no caller can pick the task it's scored on.
+	taskId: string;
 	essayText: string;
+}
+
+export interface PlacementTaskDto {
+	exam_type: string;
+	display_name: string;
+	task_name: string;
+	task_id: string;
+	prompt_text: string;
+	word_count_min: number;
 }
 
 export interface ExamRubricCategory {
@@ -40,6 +51,7 @@ export interface ExamPreview {
 
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
+	getPlacementTask(examType: string): Promise<PlacementTaskDto>;
 	getCefrProfile(learnerProfileId: string): Promise<CefrProfileDto>;
 	listExams(): Promise<ExamPreview[]>;
 }
@@ -84,10 +96,13 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 				body: JSON.stringify({
 					learner_profile_id: input.learnerProfileId,
 					exam_type: input.examType,
-					prompt_text: input.promptText,
+					task_id: input.taskId,
 					essay_text: input.essayText,
 				}),
 			});
+		},
+		getPlacementTask(examType) {
+			return call<PlacementTaskDto>(`/api/v1/placement/task/${examType}`, { method: "GET" });
 		},
 		getCefrProfile(learnerProfileId) {
 			return call<CefrProfileDto>(`/api/v1/placement/profile/${learnerProfileId}`, {

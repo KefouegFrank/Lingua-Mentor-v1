@@ -60,3 +60,14 @@ writing:
     - { cefr: B2, min_score: 5.5 }
     - { cefr: C1, min_score: 7.0 }
     - { cefr: C2, min_score: 8.5 }
+
+# Scored on the Task 2 rubric above, so the task must be a real Task 2 essay.
+placement:
+  task_id: ielts_academic_placement_v1
+  word_count_min: 250
+  prompt_text: >
+    Some people believe that universities should focus on preparing students
+    for employment, while others argue that their main purpose is to advance
+    knowledge for its own sake.
+
+    Discuss both views and give your own opinion.

@@ -34,6 +34,15 @@ class CefrThreshold(BaseModel):
     min_score: Decimal
 
 
+class PlacementTask(BaseModel):
+    """The essay task a placement test sets. Server-owned: the learner is scored
+    on this prompt, so it can never arrive from the client (PRD §22.3)."""
+
+    task_id: str
+    prompt_text: str
+    word_count_min: int
+
+
 class WritingConfig(BaseModel):
     task_name: str
     score_scale: ScoreScale
@@ -63,6 +72,9 @@ class ExamConfig(BaseModel):
     language: str
     display_name: str
     writing: WritingConfig
+    # Absent means this exam can't seat a placement test yet — how TOEFL (ADR
+    # 0003) and DELF (ADR 0002) stay unreachable without engine branching.
+    placement: PlacementTask | None = None
 
 
 class UnknownExamError(ValueError):

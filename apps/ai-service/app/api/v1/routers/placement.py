@@ -18,6 +18,7 @@ from app.core.config import get_settings
 from app.db.repositories import calibration_repository, model_run_repository, user_repository
 from app.engines.cefr_profile import CefrProfile, placement_profile, profile_from_stored
 from app.engines.writing_evaluation import evaluate_essay
+from app.engines.writing_evaluation.exam_config import UnknownExamError, load_exam_config
 from app.providers.llm.base import LLMProvider
 
 router = APIRouter(prefix="/placement", tags=["placement"])
@@ -27,8 +28,31 @@ class PlacementRequest(BaseModel):
     learner_profile_id: uuid.UUID
     # The exam whose rubric anchors the writing sample — the learner's target.
     exam_type: str
-    prompt_text: str = Field(min_length=1)
+    # The task the learner answered. Only its id crosses the wire: the prompt
+    # itself is read from config, so a caller can't choose what it's scored on.
+    task_id: str = Field(min_length=1)
     essay_text: str = Field(min_length=1)
+
+
+class PlacementTaskResponse(BaseModel):
+    exam_type: str
+    display_name: str
+    task_name: str
+    task_id: str
+    prompt_text: str
+    word_count_min: int
+
+
+def _placement_task(exam_type: str):
+    try:
+        config = load_exam_config(exam_type)
+    except UnknownExamError:
+        raise HTTPException(status_code=404, detail=f"unknown exam '{exam_type}'") from None
+    if config.placement is None:
+        raise HTTPException(
+            status_code=409, detail=f"'{exam_type}' has no placement task configured"
+        )
+    return config
 
 
 class DimensionOut(BaseModel):
@@ -57,6 +81,22 @@ def _to_response(
     )
 
 
+@router.get("/task/{exam_type}", response_model=PlacementTaskResponse)
+async def get_placement_task(exam_type: str) -> PlacementTaskResponse:
+    """The essay task to set for this exam's placement test."""
+    config = _placement_task(exam_type)
+    task = config.placement
+    assert task is not None  # _placement_task raises when it isn't
+    return PlacementTaskResponse(
+        exam_type=config.exam_id,
+        display_name=config.display_name,
+        task_name=config.writing.task_name,
+        task_id=task.task_id,
+        prompt_text=task.prompt_text,
+        word_count_min=task.word_count_min,
+    )
+
+
 @router.post("/evaluate", response_model=CefrProfileResponse)
 async def evaluate_placement(
     body: PlacementRequest,
@@ -64,6 +104,15 @@ async def evaluate_placement(
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> CefrProfileResponse:
     settings = get_settings()
+    config = _placement_task(body.exam_type)
+    task = config.placement
+    assert task is not None  # _placement_task raises when it isn't
+    # Pin the task to the exam's own: a stale or forged id must not silently
+    # score the learner against a prompt they never saw.
+    if body.task_id != task.task_id:
+        raise HTTPException(
+            status_code=400, detail=f"task '{body.task_id}' is not the placement task for this exam"
+        )
     # Same rule as scoring: record the active baseline. With the gate enforced
     # the gateway refuses placement pre-baseline, so NULL means a gate-off run.
     baseline = await calibration_repository.get_active_baseline(conn, body.exam_type)
@@ -71,7 +120,7 @@ async def evaluate_placement(
     result = await evaluate_essay(
         provider,
         exam_type=body.exam_type,
-        prompt_text=body.prompt_text,
+        prompt_text=task.prompt_text,
         essay_text=body.essay_text,
         model=settings.llm_model_high_tier,
         calibration_version=calibration_version,

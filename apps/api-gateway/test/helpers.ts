@@ -8,6 +8,7 @@ import type {
 	CefrProfileDto,
 	EvaluatePlacementInput,
 	ExamPreview,
+	PlacementTaskDto,
 } from "../src/clients/ai-service";
 import type { DbClient, Queryable } from "../src/db/client";
 import { type AccessTokenClaims, JwtStrategy } from "../src/modules/auth/jwt.strategy";
@@ -141,14 +142,25 @@ const DEFAULT_EXAMS: ExamPreview[] = [
 	},
 ];
 
+const DEFAULT_PLACEMENT_TASK: PlacementTaskDto = {
+	exam_type: "ielts_academic",
+	display_name: "IELTS Academic",
+	task_name: "Writing Task 2 (essay)",
+	task_id: "ielts_academic_placement_v1",
+	prompt_text: "Discuss both views and give your own opinion.",
+	word_count_min: 250,
+};
+
 /** Records calls and returns a canned 4D profile; override the profile or make
  * a method throw to exercise error paths. */
 export function makeFakeAiService(
 	opts: {
 		profile?: CefrProfileDto;
 		exams?: ExamPreview[];
+		task?: PlacementTaskDto;
 		evaluateError?: unknown;
 		profileError?: unknown;
+		taskError?: unknown;
 	} = {},
 ): FakeAiService {
 	const calls: Array<{ method: string; args: unknown }> = [];
@@ -171,6 +183,11 @@ export function makeFakeAiService(
 			calls.push({ method: "getCefrProfile", args: id });
 			if (opts.profileError) throw opts.profileError;
 			return opts.profile ?? defaultProfile;
+		},
+		async getPlacementTask(examType: string) {
+			calls.push({ method: "getPlacementTask", args: examType });
+			if (opts.taskError) throw opts.taskError;
+			return opts.task ?? DEFAULT_PLACEMENT_TASK;
 		},
 		async listExams() {
 			calls.push({ method: "listExams", args: undefined });
