@@ -11,12 +11,8 @@ import {
 	WRITING_EVAL_JOB_OPTIONS,
 } from "../config/constants";
 
-/**
- * The job payload is a pointer, not data: the worker re-reads the
- * writing_sessions row from Postgres as the source of truth, so the queue
- * never carries a second copy of the essay that could drift from the DB.
- * `exam_type` rides along purely for log labels.
- */
+/** A pointer, not data: the worker re-reads writing_sessions as the source of
+ * truth, so the essay never has a second copy here. `exam_type` is a log label. */
 export interface WritingEvalJobData {
 	session_id: string;
 	exam_type: string;
@@ -33,8 +29,7 @@ export interface WritingEvalQueue {
 }
 
 export function createWritingEvalQueue(redisUrl: string): Queue {
-	// BullMQ requires an IORedis instance with maxRetriesPerRequest: null —
-	// a bare URL string is not a valid `connection` option.
+	// BullMQ needs an IORedis with maxRetriesPerRequest: null, not a URL string.
 	const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 	return new Queue(QUEUE_WRITING_EVAL, {
 		connection,
@@ -47,8 +42,7 @@ export function enqueueWritingEval(
 	sessionId: string,
 	examType: string,
 ): Promise<unknown> {
-	// jobId = session_id makes enqueueing idempotent while the job record
-	// lives in Redis (see removeOnComplete in constants.ts).
+	// jobId = session_id: idempotent while the record lives (see constants.ts).
 	return queue.add(
 		JOB_WRITING_EVALUATE,
 		{ session_id: sessionId, exam_type: examType },

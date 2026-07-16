@@ -1,8 +1,5 @@
-// Test fakes for the injected dependencies (DbClient, WritingEvalQueue,
-// RedisKv, JwtStrategy). Fakes record every call so tests assert on SQL
-// params, job payloads, and cache writes; the JWT strategy is the real
-// implementation running against an ephemeral keypair, not a fake — signing
-// and verifying is exactly the behaviour under test.
+// Recording fakes for the injected deps, so tests assert on SQL params, job
+// payloads and cache writes. JwtStrategy is real — signing is under test.
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
 import { buildApp, type AppOptions } from "../src/app";
@@ -31,12 +28,8 @@ export interface FakeDb extends DbClient {
 	calls: RecordedQuery[];
 }
 
-/**
- * Routes queries by substring match against the SQL text; unmatched queries
- * return zero rows. Handlers run in registration order, first match wins.
- * A handler can also `throw` to simulate a driver-level error (e.g. a
- * Postgres unique-violation with `code: "23505"`).
- */
+/** Routes queries by substring match, first match wins, unmatched returns zero
+ * rows. A handler can `throw` to simulate a driver error (e.g. code "23505"). */
 export function makeFakeDb(
 	handlers: Array<{ match: string; rows?: Record<string, unknown>[]; throws?: unknown }> = [],
 ): FakeDb {
@@ -50,9 +43,7 @@ export function makeFakeDb(
 	return {
 		calls,
 		query,
-		// No real BEGIN/COMMIT here — the fake just runs the callback against
-		// the same recording query fn, since tests only care that the right
-		// statements were issued, not that Postgres actually isolated them.
+		// No real BEGIN/COMMIT — tests only care which statements were issued.
 		async transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
 			return fn({ query });
 		},
@@ -194,16 +185,9 @@ export interface TestJwtMaterial {
 	publicKeyPem: string;
 }
 
-/**
- * A real JwtStrategy backed by a freshly generated, throwaway RS256
- * keypair — signing/verifying is the thing under test, so faking it would
- * test nothing. `extractable: true` is required or `exportPKCS8` throws;
- * jose's default keys aren't exportable.
- *
- * Returns the raw PEMs too, alongside the strategy: a couple of refresh-flow
- * tests need to hand-craft a token (e.g. one that's already expired) rather
- * than go through JwtStrategy's fixed TTLs.
- */
+/** Real JwtStrategy on a throwaway RS256 keypair (`extractable: true`, or
+ * exportPKCS8 throws). Returns the PEMs too, for tests that hand-craft a token
+ * — e.g. an already-expired one — instead of using JwtStrategy's fixed TTLs. */
 export async function makeTestJwtMaterial(): Promise<TestJwtMaterial> {
 	const { privateKey, publicKey } = await generateKeyPair("RS256", { extractable: true });
 	const privateKeyPem = await exportPKCS8(privateKey);
@@ -259,14 +243,11 @@ export async function buildTestApp(
 	const appealQueue = opts.appealQueue ?? makeFakeAppealQueue();
 	const redis = opts.redis ?? makeFakeRedis();
 	const jwt = opts.jwt ?? (await makeTestJwt());
-	// Always inject an ai-service fake so buildApp never falls through to
-	// loadEnv() in tests (the aiService branch would otherwise trigger it).
+	// Inject both so buildApp never falls through to loadEnv() in tests.
 	const aiService = opts.aiService ?? makeFakeAiService();
-	// Same reasoning as aiService above — undefined here would fall through to
-	// loadEnv() in buildApp. Matches the frontend's local dev origin default.
 	const corsOrigins = opts.corsOrigins ?? ["http://localhost:3001"];
-	// Spread opts first so extra AppOptions (e.g. enforceCalibrationGate) flow
-	// through; the resolved fakes below win over any same-named keys.
+	// Spread opts first so extras like enforceCalibrationGate flow through; the
+	// resolved fakes win over any same-named keys.
 	const app = buildApp({ ...opts, db, queue, appealQueue, redis, jwt, aiService, corsOrigins });
 	return { app, db, queue, appealQueue, redis, jwt, aiService };
 }

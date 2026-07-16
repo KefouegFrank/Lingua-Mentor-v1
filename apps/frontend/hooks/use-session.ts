@@ -6,17 +6,10 @@ import { refreshSession as fetchRefreshedSession } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth-store";
 
 /**
- * Restores a session on first load. The access token lives only in memory
- * (store/auth-store.ts), so a hard page refresh loses it — this silently
- * exchanges the httpOnly refresh cookie (if one is still valid) for a fresh
- * access token before the app renders any route guard. Runs exactly once —
- * or would, if React 18 Strict Mode didn't double-invoke mount effects in
- * dev. Routing through client.ts's deduped refreshSession() (not a direct
- * POST /auth/refresh call) means the second invocation reuses the first
- * call's in-flight promise instead of racing it: the refresh token is
- * single-use, so two real network calls here always produced one clean
- * success and one 401 for the loser — annoying, and a needless failure
- * mode to leave lying around when the fix is "don't send two."
+ * Restores a session on first load: the access token is memory-only, so a hard
+ * refresh loses it and the httpOnly cookie has to buy a new one before any
+ * route guard renders. Goes through client.ts's deduped refreshSession() so
+ * Strict Mode's double-invoked effect can't race itself for a single-use token.
  */
 export function useSessionBootstrap(): void {
 	const isHydrated = useAuthStore((s) => s.isHydrated);
@@ -31,8 +24,7 @@ export function useSessionBootstrap(): void {
 				if (!cancelled) setSession(session.access_token, session.user);
 			})
 			.catch(() => {
-				// No valid refresh cookie (never logged in, or it expired) — this
-				// is the expected path for a first-time visitor, not an error.
+				// No valid cookie — the expected path for a first-time visitor.
 			})
 			.finally(() => {
 				if (!cancelled) useAuthStore.getState().setHydrated();
@@ -45,8 +37,8 @@ export function useSessionBootstrap(): void {
 	}, []);
 }
 
-/** Convenience selector for route guards / nav — waits for hydration so a
- * logged-in user is never flashed a login redirect on page load. */
+/** Selector for route guards / nav — waits on hydration so a logged-in user
+ * isn't flashed a login redirect on page load. */
 export function useSession() {
 	const accessToken = useAuthStore((s) => s.accessToken);
 	const user = useAuthStore((s) => s.user);

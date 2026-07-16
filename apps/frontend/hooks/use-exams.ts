@@ -2,9 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { listExams } from "@/lib/api/writing";
 
-/** Shared across the registration exam picker and the writing practice
- * submission form — one query key, one cache entry, no duplicate fetches
- * when both mount in the same session. */
+/** One query key across the registration picker and the writing form, so both
+ * mounting in a session share a cache entry rather than double-fetching. */
 export function useExams() {
 	return useQuery({
 		queryKey: ["exams"],

@@ -15,9 +15,8 @@ export function useCefrProfile() {
 	});
 }
 
-/** Placement (and, later, exam/voice sessions) change the profile server-side
- * — callers invalidate this after a mutation succeeds so the dashboard radar
- * reflects it on next render instead of showing a stale cached profile. */
+/** Placement (later, exam/voice too) changes the profile server-side — call
+ * this after a mutation so the dashboard radar doesn't render a stale one. */
 export function useInvalidateCefrProfile() {
 	const queryClient = useQueryClient();
 	return () => queryClient.invalidateQueries({ queryKey: CEFR_PROFILE_QUERY_KEY });

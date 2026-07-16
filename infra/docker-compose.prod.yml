@@ -10,7 +10,6 @@
 # container doing async LLM request/response buffering and holding its own
 # asyncpg pool against Neon; api-gateway is a single lightweight Node
 # process (ADR 0001 §2.2) so it gets the least.
-version: "3.9"
 services:
   redis:
     image: redis:7-alpine

@@ -50,13 +50,9 @@ async def evaluate(
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> EvaluateResponse:
     settings = get_settings()
-    # A user-facing score must carry the calibration it was produced under
-    # (PRD §21.3). The worker never sends a version — it's resolved here from
-    # the active baseline for the exam. Calibration harness runs are exempt:
-    # they generate the very data a baseline is built from, so there's nothing
-    # to cite yet (session_type == "calibration" marks them). No active baseline
-    # leaves the version NULL — an honest "uncalibrated" marker the display
-    # layer gates on, rather than a score silently presented as calibrated.
+    # Resolve the calibration version from the exam's active baseline (PRD §21.3).
+    # Harness runs are exempt (they build the baseline); no baseline leaves it
+    # NULL — the honest "uncalibrated" marker the display layer gates on.
     calibration_version = body.calibration_version
     if calibration_version is None and body.session_type != "calibration":
         baseline = await calibration_repository.get_active_baseline(conn, body.exam_type)

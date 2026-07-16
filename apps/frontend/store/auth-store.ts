@@ -3,17 +3,12 @@ import { create } from "zustand";
 import type { PublicUser } from "@/lib/api/types";
 
 interface AuthState {
-	/** In-memory only — deliberately never persisted to localStorage/sessionStorage.
-	 * The access token is a 15-minute bearer credential (PRD §37.1); keeping it
-	 * out of any Web Storage removes it from the XSS-exfiltration surface
-	 * entirely. Long-lived session continuity comes from the httpOnly refresh
-	 * cookie instead, restored via a silent refresh on app load — see
-	 * hooks/use-session.ts. */
+	/** In-memory only, never Web Storage — that keeps this bearer credential off
+	 * the XSS-exfiltration surface. Continuity comes from the refresh cookie. */
 	accessToken: string | null;
 	user: PublicUser | null;
-	/** False until the initial silent-refresh attempt on app load has
-	 * resolved (success or failure) — route guards wait on this so a
-	 * logged-in user isn't flashed a login screen on every hard refresh. */
+	/** False until the app-load silent refresh resolves — route guards wait on
+	 * it so a logged-in user isn't flashed a login screen. */
 	isHydrated: boolean;
 	setSession: (accessToken: string, user: PublicUser) => void;
 	setHydrated: () => void;

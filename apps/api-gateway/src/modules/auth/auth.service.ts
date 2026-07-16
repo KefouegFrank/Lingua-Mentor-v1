@@ -42,17 +42,13 @@ export interface LoginInput {
 	password: string;
 }
 
-// A real argon2id hash of a password nobody will ever type, computed once
-// and hardcoded. Verifying against it when an email isn't found costs the
-// same CPU time as verifying a real password — without it, an attacker
-// could tell "wrong password" from "no such account" just by timing the
-// response, which turns login into an email-enumeration oracle.
+// Verify against a dummy hash when the email is unknown, so response timing
+// can't distinguish "wrong password" from "no such account" (enum guard).
 const DUMMY_PASSWORD_HASH =
 	"$argon2id$v=19$m=19456,t=2,p=1$hTvgdDP6JuRBV8JSMvvECw$kTICjOBG5T7+OsT44i1dONGBaD3VJun1RMXVoTk5Vto";
 
 function isUniqueViolation(err: unknown): boolean {
-	// Postgres error code for a unique-constraint violation — the pg driver
-	// attaches it as a plain `code` string on the thrown error.
+	// 23505 = Postgres unique-violation, attached by pg as a plain `code` string.
 	return typeof err === "object" && err !== null && "code" in err && err.code === "23505";
 }
 
@@ -77,8 +73,7 @@ async function issueTokens(deps: AuthDeps, user: PublicUser): Promise<AuthTokens
 		lpid: user.learnerProfileId,
 	});
 	const { token: refreshToken, jti } = await deps.jwt.signRefreshToken(user.id);
-	// The refresh token is only as good as its Redis entry — this is what
-	// makes it revocable at all (a JWT alone can't be "un-issued").
+	// The Redis entry is what makes the token revocable — a JWT can't be un-issued.
 	await deps.redis.setex(`${REFRESH_KEY_PREFIX}${jti}`, REFRESH_TOKEN_TTL_SECONDS, user.id);
 	return { accessToken, refreshToken };
 }
@@ -92,8 +87,7 @@ export async function registerUser(
 	let row: Record<string, unknown>;
 	try {
 		row = await deps.db.transaction(async (tx) => {
-			// A user without a learner profile is a half-created account —
-			// both rows land together or neither does.
+			// Both rows land or neither does — a user without a profile is half-created.
 			const userResult = await tx.query(
 				`INSERT INTO users (email, password_hash, display_name)
 				 VALUES ($1, $2, $3)
@@ -148,9 +142,7 @@ export async function loginUser(
 		input.password,
 	);
 
-	// Unknown email, wrong password, and a deactivated account all produce
-	// the exact same error — telling them apart would hand an attacker a
-	// free account-enumeration tool.
+	// One error for unknown email / wrong password / deactivated — no enum signal.
 	if (!row || !passwordOk || !row.is_active) {
 		throw new AppError(401, "INVALID_CREDENTIALS", "email or password is incorrect");
 	}
@@ -176,17 +168,8 @@ export async function refreshSession(
 		throw new AppError(401, "INVALID_REFRESH_TOKEN", "refresh token is invalid");
 	}
 
-	// GETDEL is the rotation primitive: redeeming a refresh token consumes
-	// it atomically in one round trip, so the same cookie value can never
-	// succeed twice. Replaying an already-rotated token — a stolen cookie,
-	// a browser back-button race after a legitimate refresh — lands here
-	// with nothing left to redeem, rather than quietly minting a second
-	// valid session alongside the real one.
-	const storedUserId = await deps.redis.getdel(`${REFRESH_KEY_PREFIX}${claims.jti}`);
-	if (!storedUserId || storedUserId !== claims.sub) {
-		throw new AppError(401, "INVALID_REFRESH_TOKEN", "refresh token has already been used or revoked");
-	}
-
+	// Read the user BEFORE the GETDEL below: a DB blip here (Neon cold start,
+	// ADR 0001 §3.2) must not consume the token without minting a replacement.
 	const { rows } = await deps.db.query(
 		`SELECT u.id, u.email, u.display_name, u.role, u.subscription_tier, u.is_active,
 				lp.id AS learner_profile_id, lp.target_language, lp.target_exam
@@ -198,6 +181,13 @@ export async function refreshSession(
 	const row = rows[0];
 	if (!row || !row.is_active) {
 		throw new AppError(401, "INVALID_REFRESH_TOKEN", "account is no longer active");
+	}
+
+	// GETDEL is the rotation primitive and the single atomic gate: it consumes
+	// the token, so a replayed cookie finds nothing and can't mint a session.
+	const storedUserId = await deps.redis.getdel(`${REFRESH_KEY_PREFIX}${claims.jti}`);
+	if (!storedUserId || storedUserId !== claims.sub) {
+		throw new AppError(401, "INVALID_REFRESH_TOKEN", "refresh token has already been used or revoked");
 	}
 
 	const user = toPublicUser(row);
@@ -214,8 +204,6 @@ export async function logoutUser(
 		const claims = await deps.jwt.verifyRefreshToken(refreshToken);
 		await deps.redis.del(`${REFRESH_KEY_PREFIX}${claims.jti}`);
 	} catch {
-		// Logging out is idempotent from the client's point of view — an
-		// already-expired, already-used, or garbage token still results in
-		// "you are logged out", not an error the frontend has to handle.
+		// Idempotent: an expired, spent or garbage token still means "logged out".
 	}
 }

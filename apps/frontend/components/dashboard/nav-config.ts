@@ -4,9 +4,8 @@ export interface NavItem {
 	href: string;
 	label: string;
 	icon: LucideIcon;
-	/** "soon" renders disabled with a badge instead of a link — Voice Agent
-	 * and Exam Simulation are unbuilt (Phase 2/3), and linking to an empty
-	 * stub page would be worse than being upfront that it isn't ready yet. */
+	/** "soon" renders disabled with a badge — better than linking to an unbuilt
+	 * stub for Phase 2/3 features (Voice Agent, Exam Simulation). */
 	status: "live" | "soon";
 }
 

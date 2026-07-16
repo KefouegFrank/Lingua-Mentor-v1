@@ -33,17 +33,12 @@ const buttonVariants = cva(
 export interface ButtonProps
 	extends ButtonHTMLAttributes<HTMLButtonElement>,
 		VariantProps<typeof buttonVariants> {
-	/** Shows a spinner in place of the icon slot and disables the button —
-	 * the one loading affordance every submit button in the app should use,
-	 * so "is this button doing something" always looks the same. Ignored
-	 * when `asChild` is set — a nav link has no pending-mutation state. */
+	/** Spinner + disabled submit affordance; ignored under `asChild` (links have no pending state). */
 	isLoading?: boolean;
-	/** Render the button's styles onto its child element (e.g. next/link)
-	 * instead of a <button>, via Radix Slot — the standard way to get a
-	 * button-styled link without either nesting an interactive element
-	 * inside another or duplicating buttonVariants() at every call site. */
+	/** Style the child (e.g. next/link) as a button via Radix Slot — no nested interactive elements. */
 	asChild?: boolean;
 }
+
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 	({ className, variant, size, isLoading, disabled, asChild, children, ...props }, ref) => {

@@ -14,12 +14,8 @@ const TRUST_POINTS = [
 	"Four skills tracked independently, never averaged into a misleading single number",
 ];
 
-/**
- * Shared two-panel shell for /login and /register. The branding panel exists
- * to reinforce the product's trust-first positioning (PRD §39) at the exact
- * moment a new user is deciding whether to hand over their email — not
- * decoration for its own sake.
- */
+/** Shared two-panel shell for /login and /register — the branding panel carries
+ * the trust-first positioning (PRD §39) at the moment a user hands over an email. */
 export function AuthShell({ title, description, children, footer }: AuthShellProps) {
 	return (
 		<div className="grid min-h-screen lg:grid-cols-2">

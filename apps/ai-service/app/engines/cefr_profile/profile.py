@@ -21,9 +21,8 @@ point of a 4D profile; fabricating the three unbuilt skills would defeat it.
 
 from dataclasses import dataclass
 
-# CEFR ladder. The band→level mapping itself is NOT duplicated here — it lives
-# in each exam config's `cefr_for` (reused via the writing engine), so this
-# module only needs to recognise valid levels for the proxy.
+# CEFR ladder for the proxy only. The band→level mapping lives in each exam
+# config's `cefr_for`, not here.
 _CEFR_ORDER = ("A1", "A2", "B1", "B2", "C1", "C2")
 
 ASSESSED = "assessed"

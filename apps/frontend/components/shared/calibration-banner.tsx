@@ -5,19 +5,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 export interface CalibrationBannerProps {
 	calibrated: boolean;
 	calibrationVersion?: string | null;
-	/** Verbatim withheld-score explanation from the gateway (writing.service.ts)
-	 * — already written as honest, specific copy; never re-paraphrased here. */
+	/** Verbatim withheld-score copy from the gateway (writing.service.ts); never re-paraphrase here. */
 	message?: string;
 }
 
-/**
- * The trust surface the Phase 0 gate exists to make visible (PRD §21.3,
- * §60): every score report states plainly whether the number shown was
- * produced under an active, human-correlated calibration baseline, or is
- * being withheld because none exists yet. This is not a footnote — it is
- * the product's central credibility claim, so it renders above the score
- * itself, never below.
- */
+// trust surface (PRD §21.3, §60): score ran under an active baseline, or was withheld; renders above the score
 export function CalibrationBanner({ calibrated, calibrationVersion, message }: CalibrationBannerProps) {
 	if (calibrated) {
 		return (

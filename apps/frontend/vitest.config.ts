@@ -2,11 +2,8 @@ import path from "node:path";
 
 import { defineConfig } from "vitest/config";
 
-// Minimal config: the current suite is pure-function/schema tests with no
-// DOM, so the default "node" environment is enough — no jsdom/happy-dom
-// dependency until a component-render test actually needs one. The "@/*"
-// alias mirrors tsconfig.json's paths entry so specs can import app code
-// the same way the app itself does.
+// "node" environment: the suite is pure-function/schema tests, no DOM yet. The
+// "@/*" alias mirrors tsconfig so specs import app code the way the app does.
 export default defineConfig({
 	test: {
 		environment: "node",

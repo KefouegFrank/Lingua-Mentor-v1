@@ -15,9 +15,8 @@ export function UserMenu() {
 
 	const mutation = useMutation({
 		mutationFn: logout,
-		// Clear client state and redirect regardless of whether the network
-		// call succeeds — a failed logout request must never leave the user
-		// stuck unable to sign out.
+		// Clear and redirect whether or not the call succeeds — a failed logout
+		// must never leave the user stuck signed in.
 		onSettled: () => {
 			clearSession();
 			router.push("/login");

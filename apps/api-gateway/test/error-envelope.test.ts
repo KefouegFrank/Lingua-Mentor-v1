@@ -13,10 +13,8 @@ describe("global error envelope (PRD §34.1)", () => {
 	});
 
 	it("reports a JSON content-type with an empty body as a 400, not a 500", async () => {
-		// Regression: Fastify raises FST_ERR_CTP_EMPTY_JSON_BODY (statusCode
-		// 400) here, but it has no `validation` property, so it used to fall
-		// through to the catch-all 500 branch — reporting a client mistake as
-		// an internal server error and sending debugging the wrong way.
+		// Regression: FST_ERR_CTP_EMPTY_JSON_BODY is a 400 but has no `validation`
+		// property, so it used to fall through to the catch-all 500 branch.
 		const { app } = await buildTestApp();
 
 		const res = await app.inject({

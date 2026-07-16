@@ -40,9 +40,8 @@ async def insert_baseline(
     calibration_date: datetime,
     signed_off_by: str | None,
 ) -> None:
-    # NUMERIC columns want Decimal, not float — asyncpg rejects float for
-    # numeric params. Route via str() so the value lands exactly as computed,
-    # with no binary-float artifact (the same no-drift discipline as scores).
+    # asyncpg rejects float for NUMERIC params; route via str() so the value
+    # lands exactly, no binary-float artifact (same no-drift rule as scores).
     await conn.execute(
         """
         INSERT INTO calibration_baselines (

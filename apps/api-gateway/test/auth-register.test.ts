@@ -62,8 +62,7 @@ describe("POST /api/v1/auth/register", () => {
 		expect(userInsert?.params?.[0]).toBe(VALID_BODY.email);
 		expect(profileInsert?.params).toEqual([NEW_USER_ID, "en", null]);
 
-		// The refresh token is registered as "live" in Redis for exactly the
-		// configured TTL — that's what makes it revocable later.
+		// Registered "live" in Redis for the configured TTL — what makes it revocable.
 		expect(redis.store.size).toBe(1);
 		const [[, storedUserId]] = redis.store;
 		expect(storedUserId).toBe(NEW_USER_ID);
@@ -85,9 +84,8 @@ describe("POST /api/v1/auth/register", () => {
 	});
 
 	it("marks the refresh cookie secure in production but not otherwise", async () => {
-		// A `Secure` cookie is silently dropped by the browser on a plain-HTTP
-		// response — unconditional `true` made session restore permanently
-		// broken in local dev, where the gateway serves over http://localhost.
+		// Browsers drop a Secure cookie over plain HTTP — unconditional `true`
+		// would break session restore in local dev on http://localhost.
 		const originalEnv = process.env.NODE_ENV;
 		try {
 			process.env.NODE_ENV = "production";
@@ -106,9 +104,7 @@ describe("POST /api/v1/auth/register", () => {
 				url: "/api/v1/auth/register",
 				payload: VALID_BODY,
 			});
-			// The cookie parser represents an *absent* Secure flag as undefined,
-			// not false — either is "not secure"; toBeFalsy() covers both rather
-			// than pinning to one specific representation of "off".
+			// An absent Secure flag parses as undefined, not false — toBeFalsy covers both.
 			expect(devRes.cookies.find((c) => c.name === REFRESH_COOKIE_NAME)?.secure).toBeFalsy();
 		} finally {
 			process.env.NODE_ENV = originalEnv;

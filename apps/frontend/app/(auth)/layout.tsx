@@ -11,15 +11,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 	const router = useRouter();
 
 	useEffect(() => {
-		// Wait for the silent-refresh bootstrap before deciding — otherwise a
-		// returning logged-in user briefly sees the login form flash before
-		// being bounced to the dashboard.
+		// Wait for the bootstrap first, or a returning user sees the login form
+		// flash before being bounced to the dashboard.
 		if (isHydrated && isAuthenticated) router.replace("/dashboard");
 	}, [isHydrated, isAuthenticated, router]);
 
-	// Both branches below are brief (a refresh round-trip, then an instant
-	// redirect) — a spinner, never a blank flash, is what should ever be
-	// visible on the server-rendered first paint.
+	// Both branches are brief, so show a spinner rather than a blank flash.
 	if (!isHydrated || isAuthenticated) return <PageSpinner />;
 
 	return <>{children}</>;

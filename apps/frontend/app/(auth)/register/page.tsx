@@ -22,10 +22,8 @@ import { register as registerRequest } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth-store";
 
-// The shared gateway contract makes target_exam optional (a learner could in
-// principle set it later), but there's no profile-update endpoint yet — so
-// this is the only place it can currently be set. Tightened locally rather
-// than loosening the shared schema, which stays correct for the API contract.
+// target_exam is optional in the shared contract, but with no profile-update
+// endpoint yet this is the only place to set it — so require it here, locally.
 const registerFormSchema = registerBodySchema.extend({
 	target_exam: z.string().min(1, "Choose your target exam"),
 });
@@ -127,9 +125,7 @@ export default function RegisterPage() {
 								value={field.value}
 								onChange={(value) => {
 									field.onChange(value);
-									// A language switch invalidates whatever exam was picked
-									// for the previous language — force a deliberate re-pick
-									// rather than silently keeping a now-mismatched value.
+									// Clear the exam: a language switch makes the old pick mismatched.
 									setValue("target_exam", "");
 								}}
 								options={[

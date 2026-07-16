@@ -64,10 +64,8 @@ async def evaluate_placement(
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> CefrProfileResponse:
     settings = get_settings()
-    # Same resolution rule as the scoring path: the run records which active
-    # baseline (if any) the placement level was produced under. The gateway
-    # refuses placement pre-baseline when the Phase 0 gate is enforced, so a
-    # NULL here can only come from a gate-off (dev/test) run.
+    # Same rule as scoring: record the active baseline. With the gate enforced
+    # the gateway refuses placement pre-baseline, so NULL means a gate-off run.
     baseline = await calibration_repository.get_active_baseline(conn, body.exam_type)
     calibration_version = baseline["calibration_version"] if baseline else None
     result = await evaluate_essay(

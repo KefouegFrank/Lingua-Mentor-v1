@@ -9,9 +9,7 @@ export interface Env {
 	jwtPublicKeyPath: string;
 	enforceCalibrationGate: boolean;
 	aiServiceUrl: string;
-	// Comma-separated allowlist of browser origins allowed to call this API
-	// with credentials (the refresh cookie). Wildcard "*" is rejected by the
-	// CORS spec once credentials are involved, so this must be explicit.
+	// Explicit by necessity: CORS rejects "*" once credentials are involved.
 	corsOrigins: string[];
 }
 
@@ -33,16 +31,12 @@ export function loadEnv(): Env {
 		databaseUrl,
 		jwtPrivateKeyPath,
 		jwtPublicKeyPath,
-		// Phase 0 gate (Calibration Brief §9): withhold AI band scores produced
-		// without an active calibration baseline. Fail-closed — a safety gate
-		// that defaulted off would ship the exact thing it exists to prevent.
-		// Dev sets ENFORCE_CALIBRATION_GATE=false to see provisional scores.
+		// Phase 0 gate (Calibration Brief §9): withhold bands scored without an
+		// active baseline. Fail-closed; dev sets =false for provisional scores.
 		enforceCalibrationGate: process.env.ENFORCE_CALIBRATION_GATE !== "false",
-		// Synchronous calls to the Python evaluation service (placement scoring).
 		// Same var the worker uses; :8000 is the ai-service container's port.
 		aiServiceUrl: process.env.AI_SERVICE_URL || "http://localhost:8000",
-		// Default matches the frontend's local dev port (next dev -p 3001) —
-		// see apps/frontend/package.json. Production sets this explicitly.
+		// Default is the frontend's dev port (next dev -p 3001); prod sets it.
 		corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:3001")
 			.split(",")
 			.map((o) => o.trim())

@@ -101,9 +101,8 @@ def make_processor(
     pool: asyncpg.Pool, http: httpx.AsyncClient
 ) -> Callable[[Any, str], Awaitable[str]]:
     async def process(job: Any, token: str) -> str:
-        # bullmq-python increments attemptsMade only *after* an attempt
-        # finishes, so during attempt N it equals N-1 (verified against
-        # bullmq 2.25 worker source).
+        # bullmq-python increments attemptsMade only after an attempt finishes,
+        # so during attempt N it reads N-1 (bullmq 2.25 worker source).
         attempts = job.opts.get("attempts") or 1
         is_final = job.attemptsMade + 1 >= attempts
         return await run_writing_eval(

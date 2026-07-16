@@ -7,19 +7,11 @@ export interface Queryable {
 	query(text: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-/**
- * Narrow surface the app depends on, so tests can substitute a fake without
- * spinning up Postgres.
- */
+/** Narrow surface the app depends on, so tests can fake it without Postgres. */
 export interface DbClient extends Queryable {
-	/**
-	 * Runs `fn` against a single checked-out connection wrapped in
-	 * BEGIN/COMMIT — needed wherever more than one write must land
-	 * atomically (e.g. registering a user creates both a `users` row and a
-	 * `learner_profiles` row; one succeeding without the other is a bug,
-	 * not a valid state).
-	 */
-	transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>;
+	/** Runs `fn` on one connection inside BEGIN/COMMIT — for writes that must
+	 * land together, like a user row and its learner_profiles row. */
+	transaction<T>(this: void, fn: (tx: Queryable) => Promise<T>): Promise<T>;
 	end?(): Promise<void>;
 }
 

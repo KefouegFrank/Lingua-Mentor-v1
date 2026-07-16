@@ -32,16 +32,14 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
 	app.get("/me", async (request) => {
 		const profile = await getUserProfile(app.db, request.user!.userId);
 		if (!profile) {
-			// The JWT verified fine but the account it points to is gone —
-			// GDPR erasure or a manual delete. Same 404 either way.
+			// JWT verified but the account is gone (GDPR erasure / manual delete).
 			throw new AppError(404, "NOT_FOUND", "user not found");
 		}
 		return toResponseProfile(profile);
 	});
 
-	// The 4D CEFR profile with per-skill source status (assessed/proxy/pending).
-	// Proxied from ai-service so the source rules live in one place, rather than
-	// re-derived here from the raw columns /me returns.
+	// Proxied from ai-service so the assessed/proxy/pending source rules live
+	// in one place, not re-derived here from /me's raw columns.
 	app.get("/cefr-profile", async (request) => {
 		return app.aiService.getCefrProfile(request.user!.learnerProfileId);
 	});

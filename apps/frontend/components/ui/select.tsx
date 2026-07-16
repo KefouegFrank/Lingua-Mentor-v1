@@ -3,11 +3,8 @@ import { forwardRef, type SelectHTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
-// A styled native <select> rather than a Radix/headless combobox: every use
-// in this app is a short, flat option list (exam type, accent, persona) with
-// no search or multi-select need — native select is fully keyboard and
-// screen-reader accessible for free, and pulling in a combobox primitive for
-// this would be dependency weight with no behavioral upside.
+// Styled native <select>, not a combobox: every use is a short flat list with
+// no search or multi-select, and native gets keyboard/screen-reader for free.
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
 	({ className, children, ...props }, ref) => {
 		return (

@@ -1,6 +1,5 @@
-// Writing submission lifecycle from the gateway side: insert the session row
-// (the source of truth the worker re-reads), enqueue the pointer job, and
-// read results back. Scoring itself lives in ai-service — never here.
+// Gateway side of the writing lifecycle: insert the session row the worker
+// re-reads, enqueue a pointer job, read results. Scoring lives in ai-service.
 import type { DbClient } from "../../db/client";
 import { AppError } from "../../plugins/error-envelope";
 import {
@@ -40,9 +39,8 @@ export interface WritingResult {
 	message?: string;
 	exam_type?: string;
 	word_count?: number | null;
-	// NUMERIC columns stay strings end-to-end (pg returns them as strings,
-	// ai-service serializes Decimal as string) — parseFloat would reintroduce
-	// the rounding drift NUMERIC(4,2) exists to prevent.
+	// NUMERIC stays a string end-to-end — parseFloat reintroduces the drift
+	// NUMERIC(4,2) exists to prevent.
 	overall_band_score?: string | null;
 	cefr_level?: string | null;
 	calibration_version?: string | null;
@@ -79,8 +77,7 @@ export async function submitWriting(
 	try {
 		await enqueueWritingEval(deps.queue, sessionId, input.examType);
 	} catch (err) {
-		// Don't strand the row as pending-forever if Redis is down — mark it
-		// failed so the poll endpoint reports something actionable.
+		// Redis down: mark it failed rather than strand the row pending forever.
 		await deps.db.query(`UPDATE writing_sessions SET status = 'failed' WHERE id = $1`, [
 			sessionId,
 		]);
@@ -96,8 +93,7 @@ export async function getWritingResult(
 	learnerProfileId: string,
 	enforceCalibrationGate: boolean,
 ): Promise<WritingResult | null> {
-	// Ownership check lives in the WHERE clause: someone else's session id is
-	// indistinguishable from an unknown one (404), leaking nothing.
+	// Ownership in the WHERE clause: someone else's session reads as 404.
 	const { rows } = await deps.db.query(
 		`SELECT ws.id, ws.status, ws.exam_type, ws.word_count, ws.overall_band_score,
 				ws.cefr_level, ws.calibration_version, ws.submitted_at, ws.scored_at,
@@ -128,10 +124,8 @@ export async function getWritingResult(
 				? row.scored_at.toISOString()
 				: String(row.scored_at);
 
-	// Phase 0 gate (Calibration Brief §9, PRD §21.3): a band produced without an
-	// active calibration baseline (calibration_version NULL) is not exam-valid.
-	// When the gate is enforced, we withhold the numbers rather than present an
-	// uncalibrated score as if it were trustworthy — the whole point of Phase 0.
+	// Phase 0 gate (Calibration Brief §9, PRD §21.3): a band scored with no active
+	// baseline isn't exam-valid, so withhold it rather than imply it's trustworthy.
 	const calibrated = row.calibration_version != null;
 	if (!calibrated && enforceCalibrationGate) {
 		return {
@@ -229,8 +223,7 @@ export async function submitAppeal(
 	if (String(session.status) !== "scored") {
 		throw new AppError(409, "NOT_SCORED", "only a scored session can be appealed");
 	}
-	// A band withheld by the Phase 0 gate was never shown — there is no score
-	// for the learner to dispute, so an appeal is meaningless against it.
+	// A gate-withheld band was never shown, so there's nothing to appeal.
 	if (enforceCalibrationGate && session.calibration_version == null) {
 		throw new AppError(
 			409,
@@ -265,8 +258,7 @@ export async function submitAppeal(
 	try {
 		await enqueueAppealEval(deps.appealQueue, appealId);
 	} catch (err) {
-		// Same failure rule as submitWriting: never strand a pending row that
-		// no worker will ever pick up — mark it failed so the poll explains.
+		// Same rule as submitWriting: mark failed rather than strand it pending.
 		await deps.db.query(`UPDATE score_appeals SET status = 'failed' WHERE id = $1`, [appealId]);
 		throw err;
 	}

@@ -31,9 +31,8 @@ _POLICY_LAYER = """Non-negotiable constraints:
   outside JSON."""
 
 
-# Appeal re-marks (PRD §21.4) use a deliberately different marking method, not
-# just different sampling: descriptor-by-descriptor confirmation instead of
-# holistic scoring. The original score is never included anywhere in the
+# Appeal re-marks (PRD §21.4) use a different method, not just sampling:
+# descriptor-by-descriptor, not holistic. The original score never enters the
 # prompt — an anchored re-mark would only echo the score under appeal.
 _APPEAL_STANCE_LAYER = """Marking method for this evaluation — independent re-mark:
 - You are the second marker. Approach the essay fresh, with no assumption

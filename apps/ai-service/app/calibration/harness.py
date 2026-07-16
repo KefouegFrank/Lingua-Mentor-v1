@@ -50,26 +50,21 @@ from app.providers.llm.base import LLMProvider
 
 OVERALL_GATE = 0.85
 CATEGORY_GATE = 0.80
-# ADR 0006 §2.3: below the 0.85 launch gate isn't automatically a dead end.
-# A run at or above this interim mark is within the documented tuning budget
-# (iterate and re-run); below it is a structural miss needing a rethink, not
-# another prompt tweak. Never lowers the launch gate — only classifies a miss.
+# ADR 0006 §2.3: at/above this interim mark a sub-0.85 run is within the tuning
+# budget (iterate); below it is a structural miss. Never lowers the launch gate.
 INTERIM_GATE = 0.75
-# ADR 0006 §2.1: a gamed essay must not score more than half a band above the
-# human's judgement of it. Over-scoring bad-faith responses is the failure mode
-# (Stumping-e-rater), so the gate is one-sided — under-scoring them is fine.
+# ADR 0006 §2.1: one-sided gate — a gamed essay must not score >0.5 band above
+# the human's; under-scoring bad faith is fine (Stumping-e-rater failure mode).
 ADVERSARIAL_MARGIN = Decimal("0.5")
-# ADR 0006 §2.5: gate on adjacent-or-exact CEFR agreement, not flat accuracy —
-# a one-level disagreement at a fuzzy band boundary isn't model error.
+# ADR 0006 §2.5: adjacent-or-exact CEFR agreement, not flat accuracy — a one-
+# level miss at a fuzzy band boundary isn't model error.
 CEFR_GATE = 0.90
-# Brief §6.2 step 2: essays where AI and human diverge by more than a full band
-# are the tuning-loop review set. Adversarial essays are excluded — they are
-# *meant* to diverge, so counting them here would drown the real signal.
+# Brief §6.2 step 2: >1-band AI/human divergences are the review set. Adversarial
+# essays are excluded — they're meant to diverge and would drown the signal.
 DIVERGENCE_THRESHOLD = Decimal("1.0")
 
-# Canonical CEFR ladder for adjacency arithmetic. A score below the lowest
-# configured threshold maps to None (`cefr_for`), ranked just under A1 so it's
-# adjacent to A1 but not to A2.
+# CEFR ladder for adjacency arithmetic. Below the lowest threshold maps to None
+# (`cefr_for`), ranked just under A1 — adjacent to A1 but not A2.
 _CEFR_SCALE = ("A1", "A2", "B1", "B2", "C1", "C2")
 
 
@@ -92,9 +87,8 @@ class Phase0Gate:
     note: str = ""
 
 
-# The full Phase 0 Go/No-Go surface. WER is specified by the Calibration Brief
-# but unbuildable until the ASR path lands (Phase 2) — it stays here, marked
-# unimplemented, so its absence is visible on every report (ADR 0006 §2.2).
+# The full Go/No-Go surface. WER stays here marked unimplemented (needs the
+# Phase 2 ASR path) so its absence shows on every report (ADR 0006 §2.2).
 PHASE0_GATES: tuple[Phase0Gate, ...] = (
     Phase0Gate("pearson_overall", "AI↔human overall Pearson r >= 0.85", True),
     Phase0Gate(
@@ -179,9 +173,8 @@ class CefrAgreement:
 
     @property
     def gate_passed(self) -> bool:
-        # An empty sample can't fail a gate it never ran — treat as vacuously
-        # passing so a per-exam subset with no gradable CEFR pairs doesn't wedge
-        # the whole run. The Pearson gate is the real backstop.
+        # Empty sample passes vacuously so a subset with no gradable CEFR pairs
+        # can't wedge the run — the Pearson gate is the real backstop.
         return self.sample_count == 0 or self.adjacent_or_exact_rate >= CEFR_GATE
 
 

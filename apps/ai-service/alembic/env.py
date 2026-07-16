@@ -32,10 +32,8 @@ def _database_url() -> str:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    # The SQLAlchemy asyncpg dialect rejects libpq's `sslmode`/`channel_binding`
-    # query params (raw asyncpg accepts them, which is why the app's pool works
-    # off the same URL and only Alembic tripped). Translate `sslmode` to the
-    # dialect's own `ssl` and drop `channel_binding`, so a Neon URL migrates as-is.
+    # The SQLAlchemy asyncpg dialect rejects libpq's sslmode/channel_binding
+    # params (raw asyncpg accepts them): map sslmode→ssl, drop channel_binding.
     parts = urlsplit(url)
     if parts.query:
         params = dict(parse_qsl(parts.query))

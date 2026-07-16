@@ -1,7 +1,5 @@
-// CEFR ladder helpers shared by the radar chart and anywhere else a level
-// needs to become a plottable number. The mapping is ordinal only (A1=1 ...
-// C2=6) — it has no calibration meaning, it exists purely to place a level
-// on a chart axis.
+// CEFR ladder helpers: level → plottable number. Ordinal only (A1=1 … C2=6),
+// no calibration meaning — just for placing a level on a chart axis.
 export const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 export type CefrLevel = (typeof CEFR_LEVELS)[number];
 

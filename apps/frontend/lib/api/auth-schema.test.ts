@@ -1,10 +1,8 @@
 import { loginBodySchema, registerBodySchema } from "@lingumentor/shared-schemas";
 import { describe, expect, it } from "vitest";
 
-// These schemas are what login/register page.tsx wire into react-hook-form
-// via zodResolver — this is the exact validation the signup/login forms run
-// client-side before ever hitting the gateway, so getting the boundary
-// cases right here is getting the forms' error states right.
+// The exact schemas the signup/login forms run via zodResolver, so these
+// boundary cases are the forms' client-side error states.
 describe("registerBodySchema", () => {
 	it("accepts a well-formed registration payload", () => {
 		const result = registerBodySchema.safeParse({
@@ -48,10 +46,8 @@ describe("registerBodySchema", () => {
 	});
 
 	it("treats target_exam as optional at the shared-schema level", () => {
-		// The register page tightens this locally (registerFormSchema extends
-		// this with a required target_exam) — the shared contract itself
-		// stays permissive because the gateway has no other caller that
-		// requires it yet.
+		// The register page requires target_exam locally; the shared contract
+		// stays permissive since no other caller needs it yet.
 		const result = registerBodySchema.safeParse({
 			email: "learner@example.com",
 			password: "correct-horse",

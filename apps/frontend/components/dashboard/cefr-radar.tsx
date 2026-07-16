@@ -46,14 +46,9 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
 	);
 }
 
-/**
- * The four-dimensional CEFR profile (PRD §22) as a radar chart — a single
- * averaged level hides asymmetric proficiency, so each skill plots
- * independently. Unmeasured skills (`pending`, score 0) plot as an honest
- * dip rather than an interpolated guess, and the legend beneath repeats the
- * same assessed/proxy/pending distinction as text for anyone on a touch
- * device who can't hover the tooltip.
- */
+/** The 4D CEFR profile (PRD §22) as a radar chart: each skill plots on its own
+ * so asymmetric proficiency shows, and `pending` skills dip to 0 rather than
+ * interpolate a guess. The text legend repeats the distinction for touch. */
 export function CefrRadar({ profile }: { profile: CefrProfile }) {
 	const data = buildData(profile);
 

@@ -1,6 +1,5 @@
-// Placement submission: resolve the learner's chosen exam, hand the essay to
-// ai-service for scoring, and return the initialized 4D CEFR profile. Scoring
-// and profile logic live in ai-service — this layer only wires auth + context.
+// Placement submission: resolve the target exam, hand the essay to ai-service,
+// return the initialized 4D CEFR profile. Scoring logic lives in ai-service.
 import type { AiServiceClient, CefrProfileDto } from "../../clients/ai-service";
 import type { DbClient } from "../../db/client";
 import { AppError } from "../../plugins/error-envelope";
@@ -21,8 +20,7 @@ export async function submitPlacement(
 	input: PlacementInput,
 	enforceCalibrationGate: boolean,
 ): Promise<CefrProfileDto> {
-	// The placement essay is scored against the learner's target exam rubric,
-	// chosen at signup. No target exam means there's no rubric to score against.
+	// Scored against the target exam's rubric — no target exam, no rubric.
 	const { rows } = await deps.db.query(
 		`SELECT target_exam FROM learner_profiles WHERE id = $1`,
 		[input.learnerProfileId],
@@ -32,11 +30,8 @@ export async function submitPlacement(
 		throw new AppError(400, "NO_TARGET_EXAM", "set a target exam before taking the placement test");
 	}
 
-	// Phase 0 gate (PRD §60): a placement CEFR level is a user-facing AI
-	// evaluation like any other — it must not be produced from an uncalibrated
-	// scorer. Refusing *before* the LLM call (rather than withholding after)
-	// means nothing uncalibrated is ever stored on the profile, and no tokens
-	// are spent on a result we would refuse to show.
+	// Phase 0 gate (PRD §60): refuse before the LLM call, not after, so nothing
+	// uncalibrated is stored and no tokens go to a result we'd refuse to show.
 	if (enforceCalibrationGate) {
 		const baseline = await deps.db.query(
 			`SELECT 1 FROM calibration_baselines

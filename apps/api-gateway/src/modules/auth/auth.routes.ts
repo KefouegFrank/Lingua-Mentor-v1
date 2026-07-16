@@ -21,11 +21,8 @@ import {
 function setRefreshCookie(reply: FastifyReply, token: string): void {
 	reply.setCookie(REFRESH_COOKIE_NAME, token, {
 		httpOnly: true,
-		// A `Secure` cookie is silently dropped by the browser on a plain-HTTP
-		// response — unconditional `true` here made session restore (the
-		// silent-refresh-on-reload flow) permanently unable to work in local
-		// dev, since the gateway serves over http://localhost. Real browsers
-		// don't surface this as an error; the cookie just never gets stored.
+		// Not unconditional: browsers silently drop a Secure cookie over plain
+		// HTTP, which would break session restore on http://localhost in dev.
 		secure: process.env.NODE_ENV === "production",
 		sameSite: "strict",
 		path: REFRESH_COOKIE_PATH,
@@ -33,8 +30,7 @@ function setRefreshCookie(reply: FastifyReply, token: string): void {
 	});
 }
 
-// JSON responses use snake_case throughout the API — this is the one place
-// that translates the service layer's camelCase PublicUser into that shape.
+// The one place camelCase PublicUser becomes the API's snake_case JSON shape.
 function toResponseUser(user: PublicUser) {
 	return {
 		id: user.id,
@@ -51,10 +47,8 @@ function toResponseUser(user: PublicUser) {
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
 	const deps: AuthDeps = { db: app.db, redis: app.redis, jwt: app.jwt };
 
-	// TODO(slice-6): rate-limit register/login (per-IP and per-email) once
-	// the Redis token-bucket infrastructure lands for AI-endpoint quotas —
-	// brute-force login attempts want the same mitigation, no reason to
-	// build a second rate limiter for it.
+	// TODO(slice-6): rate-limit register/login (per-IP and per-email) on the
+	// Redis token bucket built for AI-endpoint quotas — same mitigation fits.
 	app.post("/register", async (request, reply) => {
 		const body = registerBodySchema.parse(request.body);
 		const { user, tokens } = await registerUser(deps, {
@@ -92,8 +86,6 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
 		return reply.status(204).send();
 	});
 
-	// TODO(phase-2): password reset needs an email provider, which isn't
-	// part of the Phase 1 infra (ADR 0001 covers compute/data/observability,
-	// not transactional email) — POST /auth/password/reset and
-	// PATCH /auth/password land once one is chosen.
+	// TODO(phase-2): POST /auth/password/reset + PATCH /auth/password, once an
+	// email provider is chosen — ADR 0001 doesn't cover transactional email.
 }

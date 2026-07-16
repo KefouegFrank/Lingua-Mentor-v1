@@ -8,12 +8,8 @@ import { Button } from "@/components/ui/button";
 import { NavLinks } from "@/components/dashboard/nav-links";
 import { UserMenu } from "@/components/dashboard/user-menu";
 
-/**
- * The authenticated app shell: a fixed sidebar on desktop, a slide-over
- * drawer behind a hamburger on mobile. Both render the same <NavLinks> and
- * <UserMenu> content — only the chrome around them differs — so route-active
- * styling and the live/soon nav distinction can never drift between the two.
- */
+/** Authenticated app shell: fixed sidebar on desktop, hamburger drawer on
+ * mobile. Both render the same <NavLinks>/<UserMenu> so nav state can't drift. */
 export function AppShell({ children }: { children: React.ReactNode }) {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 

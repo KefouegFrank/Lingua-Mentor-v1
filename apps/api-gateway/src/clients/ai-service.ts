@@ -1,6 +1,5 @@
-// Synchronous HTTP client for the Python evaluation service. The writing flow
-// reaches ai-service asynchronously through BullMQ; placement is a one-shot
-// onboarding call, so it goes over HTTP and the caller waits for the profile.
+// Synchronous HTTP client for ai-service. Writing goes async via BullMQ, but
+// placement is one-shot onboarding, so the caller waits for the profile.
 import { AppError } from "../plugins/error-envelope";
 
 export interface CefrDimension {
@@ -50,8 +49,7 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 
 	async function toJson<T>(res: Response): Promise<T> {
 		if (res.ok) return (await res.json()) as T;
-		// ai-service speaks the same {error:{code,message}} envelope — re-raise it
-		// as our AppError so the gateway emits one consistent error shape.
+		// ai-service speaks the same envelope — re-raise as AppError to keep one shape.
 		let code = "UPSTREAM_ERROR";
 		let message = `ai-service responded ${res.status}`;
 		try {
@@ -61,8 +59,7 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 		} catch {
 			// non-JSON error body — keep the defaults
 		}
-		// A 5xx upstream is a bad gateway from the client's side; a 4xx passes
-		// through as-is (the caller's input, e.g. an unknown exam, is the fault).
+		// Upstream 5xx reads as a bad gateway; a 4xx is the caller's input, so it passes.
 		throw new AppError(res.status >= 500 ? 502 : res.status, code, message);
 	}
 
@@ -98,9 +95,8 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 			});
 		},
 		listExams() {
-			// Rubric metadata is config, not a duplicated frontend list — proxying
-			// the exam YAMLs' own source of truth keeps the selector honest as
-			// exams are added, quarantined (ADR 0003), or reworked (ADR 0002).
+			// Proxied from the exam YAMLs rather than duplicated as a frontend list,
+			// so the selector tracks exams being added or quarantined (ADR 0003).
 			return call<ExamPreview[]>("/api/v1/writing-eval/exams", { method: "GET" });
 		},
 	};

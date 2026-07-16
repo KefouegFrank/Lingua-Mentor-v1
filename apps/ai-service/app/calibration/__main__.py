@@ -247,9 +247,8 @@ def main() -> int:
         # be green against the gates and still be worse than its own baseline.
         return 4
 
-    # Two independent conditions: every writing gate green, AND every Phase 0
-    # gate actually built. While WER is pending, the best possible outcome is a
-    # WRITING GO — never a full Phase 0 GO (Brief §9 partial-pass-is-a-no-go).
+    # Needs both: every writing gate green AND every Phase 0 gate built. With
+    # WER pending the best outcome is a WRITING GO, never a full GO (Brief §9).
     if not all_passed:
         print("\nGO/NO-GO: NO-GO — at least one exam type fails a writing gate")
         return 1

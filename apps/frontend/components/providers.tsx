@@ -19,9 +19,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 				defaultOptions: {
 					queries: {
 						staleTime: 30_000,
-						// A 4xx (bad input, not-found, validation) will never succeed on
-						// retry — only retry transient network/5xx failures, and cap it
-						// so a dead backend doesn't spin a query for a minute.
+						// Retry only transient network/5xx failures, capped — a 4xx can't
+						// succeed on retry, and a dead backend shouldn't spin for a minute.
 						retry: (failureCount, error) => {
 							if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
 								return false;

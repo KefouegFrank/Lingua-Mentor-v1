@@ -4,11 +4,8 @@ async function main() {
 	const app = buildApp();
 	const port = Number(process.env.PORT || 3000);
 
-	// Finish in-flight requests, close the queue connection and pg pool
-	// (onClose hook in app.ts) before the process exits. The handler itself
-	// must stay non-async — Node's signal listener type is void-returning,
-	// so an async listener here would turn a rejected close() into an
-	// unhandled rejection instead of the clean, logged non-zero exit below.
+	// Drain in-flight requests, then close queue/pool (onClose in app.ts). Keep
+	// non-async: Node types the listener void, so a rejected close() would escape.
 	for (const signal of ["SIGTERM", "SIGINT"] as const) {
 		process.once(signal, () => {
 			app.log.info({ signal }, "shutting down");
@@ -31,9 +28,7 @@ async function main() {
 }
 
 if (require.main === module) {
-	// A synchronous throw inside main() before its own try/catch is set up
-	// (e.g. loadEnv() rejecting on missing config) would otherwise reject
-	// main()'s promise with nothing attached to observe it.
+	// main() can throw before its own try/catch exists (loadEnv on bad config).
 	main().catch((err: unknown) => {
 		console.error(err);
 		process.exit(1);

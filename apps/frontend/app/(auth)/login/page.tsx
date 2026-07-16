@@ -38,9 +38,8 @@ export default function LoginPage() {
 			router.push("/dashboard");
 		},
 		onError: (err: Error) => {
-			// INVALID_CREDENTIALS is deliberately identical for "no such email"
-			// and "wrong password" (auth.service.ts — no account-enumeration
-			// signal), so the UI can't and shouldn't try to point at one field.
+			// INVALID_CREDENTIALS is identical for both causes (auth.service.ts,
+			// no enum signal), so don't attribute it to one field.
 			if (err instanceof ApiError && err.code === "INVALID_CREDENTIALS") {
 				toast.error("Incorrect email or password.");
 				return;
@@ -78,9 +77,7 @@ export default function LoginPage() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<Label htmlFor="password">Password</Label>
-						{/* PATCH /auth/password isn't built yet (deferred to Phase 2 —
-						    needs a transactional email provider); leaving the link out
-						    entirely rather than linking somewhere that 404s. */}
+						{/* No reset link: PATCH /auth/password lands in Phase 2. */}
 					</div>
 					<PasswordInput id="password" autoComplete="current-password" {...register("password")} />
 					{errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}

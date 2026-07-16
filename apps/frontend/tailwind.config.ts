@@ -1,10 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// Design tokens as CSS variables (defined in app/globals.css) rather than
-// literal hex values here — this is what lets a future dark-mode toggle or
-// rebrand change one place instead of hunting hardcoded colors through every
-// component. Semantic names (primary, success, warning) over raw color names
-// (indigo, green) so a palette change never means renaming call sites.
+// Colors are semantic CSS-variable tokens (app/globals.css), not hex here — a
+// dark-mode toggle or rebrand changes one place, and call sites never rename.
 const config: Config = {
 	darkMode: ["class"],
 	content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],

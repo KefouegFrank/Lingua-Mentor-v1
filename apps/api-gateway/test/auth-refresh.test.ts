@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { JWT_ISSUER, REFRESH_COOKIE_NAME, REFRESH_KEY_PREFIX, REFRESH_TOKEN_TTL_SECONDS } from "../src/config/constants";
 import {
+	type FakeDb,
 	LEARNER_PROFILE_ID,
 	USER_ID,
 	buildTestApp,
@@ -10,6 +11,28 @@ import {
 	makeTestJwtMaterial,
 	signTestAccessToken,
 } from "./helpers";
+
+/** A database that fails its first query and recovers — a single blip, like a
+ * Neon cold start (ADR 0001 §3.2). makeFakeDb's `throws` fails every matching
+ * query instead, which models a database that's simply down. */
+function dbFailingFirstQuery(): FakeDb {
+	const healthy = dbWithUser();
+	let attempts = 0;
+	return {
+		calls: healthy.calls,
+		async query(text: string, params?: unknown[]) {
+			attempts += 1;
+			if (attempts === 1) {
+				// Mirrors the real pg failure against Neon: ETIMEDOUT from connect.
+				const err: NodeJS.ErrnoException = new Error("connect ETIMEDOUT 18.199.234.81:5432");
+				err.code = "ETIMEDOUT";
+				throw err;
+			}
+			return healthy.query(text, params);
+		},
+		transaction: healthy.transaction,
+	};
+}
 
 function dbWithUser(overrides: Record<string, unknown> = {}) {
 	return makeFakeDb([
@@ -89,10 +112,8 @@ describe("POST /api/v1/auth/refresh", () => {
 		});
 		expect(first.statusCode).toBe(200);
 
-		// Replaying the exact same (now-consumed) cookie must fail — this is
-		// the whole point of rotation: a stolen refresh cookie is only good
-		// for one redemption before the legitimate client's next refresh
-		// invalidates it, making reuse detectable.
+		// The point of rotation: a consumed cookie is good for one redemption,
+		// so replaying it must fail — that's what makes reuse detectable.
 		const replay = await app.inject({
 			method: "POST",
 			url: "/api/v1/auth/refresh",
@@ -101,6 +122,35 @@ describe("POST /api/v1/auth/refresh", () => {
 
 		expect(replay.statusCode).toBe(401);
 		expect(replay.json().error.code).toBe("INVALID_REFRESH_TOKEN");
+	});
+
+	it("survives a transient database failure without consuming the refresh token", async () => {
+		const material = await makeTestJwtMaterial();
+		const { app, redis } = await buildTestApp({ db: dbFailingFirstQuery(), jwt: material.jwt });
+		const token = await seedLiveRefreshToken(material, redis);
+		expect(redis.store.size).toBe(1);
+
+		// First attempt: the user lookup times out against Neon.
+		const failed = await app.inject({
+			method: "POST",
+			url: "/api/v1/auth/refresh",
+			cookies: { [REFRESH_COOKIE_NAME]: token },
+		});
+		expect(failed.statusCode).toBe(500);
+
+		// A brief DB outage says nothing about the session, so the token must
+		// still be redeemable — consuming it here would end a valid session.
+		expect(redis.store.size).toBe(1);
+
+		// Retrying once the DB is back must succeed — the reload path that used
+		// to 401 and bounce the user to login.
+		const retried = await app.inject({
+			method: "POST",
+			url: "/api/v1/auth/refresh",
+			cookies: { [REFRESH_COOKIE_NAME]: token },
+		});
+		expect(retried.statusCode).toBe(200);
+		expect(typeof retried.json().access_token).toBe("string");
 	});
 
 	it("rejects a request with no refresh cookie", async () => {

@@ -1,14 +1,10 @@
-// Small key-value seam over Redis for auth session state (refresh-token
-// liveness). Deliberately narrow — the BullMQ queue owns its own Redis
-// connection (src/queue/bullmq-client.ts); this one is just for
-// SETEX/GETDEL/DEL, so it's trivial to fake in tests without dragging in a
-// real BullMQ-flavoured mock.
+// SETEX/GETDEL/DEL seam for refresh-token liveness, kept narrow so tests can
+// fake it. The BullMQ queue owns its own connection (queue/bullmq-client.ts).
 import IORedis from "ioredis";
 
 export interface RedisKv {
 	setex(key: string, ttlSeconds: number, value: string): Promise<void>;
-	/** Atomically reads and deletes a key in one round trip — the primitive
-	 * refresh-token rotation relies on: a token can be redeemed exactly once. */
+	/** Atomic read-and-delete: what makes a refresh token redeemable once. */
 	getdel(key: string): Promise<string | null>;
 	del(key: string): Promise<void>;
 	quit?(): Promise<void>;

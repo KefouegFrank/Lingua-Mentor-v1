@@ -7,7 +7,6 @@
 # on a dev machine, not the VPS — keeping the two in parity means a local
 # run surfaces a memory regression before it ever reaches prod, rather than
 # local dev having a silently more generous ceiling than what's deployed.
-version: "3.9"
 services:
   # restart: unless-stopped on every service — a container that dies to a
   # host OOM event (observed on this machine: Redis was killed mid-session

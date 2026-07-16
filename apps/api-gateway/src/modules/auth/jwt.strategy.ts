@@ -1,10 +1,7 @@
 // JWT RS256 sign/verify using keys from env (JWT_PRIVATE_KEY_PATH / JWT_PUBLIC_KEY_PATH).
 //
-// One keypair signs two different kinds of token — a short-lived access
-// token and a long-lived refresh token — so every payload carries a
-// `token_use` claim and every verify call checks it. Without that check, a
-// stolen access token would double as a valid refresh token: same
-// signature, same issuer, nothing to tell them apart.
+// One keypair signs both token kinds, so every payload carries `token_use` and
+// every verify checks it — otherwise an access token doubles as a refresh token.
 import { randomUUID } from "node:crypto";
 import { SignJWT, errors as joseErrors, importPKCS8, importSPKI, jwtVerify } from "jose";
 
@@ -42,9 +39,7 @@ export interface RefreshTokenPayload {
 }
 
 export class JwtStrategy {
-	// Importing a PEM is async but the key itself never changes for the life
-	// of the process, so we do it once and cache the promise — every sign/
-	// verify call after the first just awaits the same resolved value.
+	// Cache the import promise — the PEM never changes for the life of the process.
 	private privateKeyPromise: ReturnType<typeof importPKCS8> | null = null;
 	private publicKeyPromise: ReturnType<typeof importSPKI> | null = null;
 
@@ -74,8 +69,8 @@ export class JwtStrategy {
 			.sign(key);
 	}
 
-	/** Returns the jti alongside the token so the caller can register it as
-	 * "live" in Redis — the token itself is opaque once signed. */
+	/** Returns the jti too: the token is opaque once signed, and the caller has
+	 * to register that jti as "live" in Redis. */
 	async signRefreshToken(userId: string): Promise<{ token: string; jti: string }> {
 		const key = await this.getPrivateKey();
 		const jti = randomUUID();

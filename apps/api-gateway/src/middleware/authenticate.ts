@@ -1,7 +1,5 @@
-// JWT-verify preHandler + RBAC guard. Attached per-route-plugin (not
-// globally) so public routes like /health and /api/v1/auth/* stay reachable
-// without a token — see writing.routes.ts and users.routes.ts for how it's
-// wired via Fastify's plugin-scoped hooks.
+// JWT-verify preHandler + RBAC guard. Attached per-route-plugin, not globally,
+// so /health and /api/v1/auth/* stay reachable without a token.
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { AppError } from "../plugins/error-envelope";

@@ -48,12 +48,10 @@ export interface AppOptions {
 export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	const app = Fastify({ logger: true });
 
-	// Called directly, not via app.register — Fastify v5 scopes error handlers
-	// to the registering plugin, and the §34.1 envelope must be global.
+	// Direct call, not app.register — Fastify v5 would scope it to the plugin.
 	registerErrorEnvelope(app);
 
-	// Cookie parsing has to be available before any route that reads or sets
-	// one — registered at root, ahead of every route plugin below.
+	// At root, ahead of every route plugin that reads or sets a cookie.
 	app.register(fastifyCookie);
 
 	let db = opts.db;
@@ -81,10 +79,8 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 		corsOrigins = corsOrigins ?? env.corsOrigins;
 	}
 
-	// credentials: true is required for the refresh cookie to travel
-	// cross-origin (the frontend runs on its own port in dev, its own
-	// subdomain in prod) — an explicit origin allowlist, never "*", is the
-	// only combination browsers permit once credentials are involved.
+	// The refresh cookie is cross-origin, so credentials must be on — and once
+	// they are, browsers require an explicit allowlist rather than "*".
 	app.register(fastifyCors, { origin: corsOrigins, credentials: true });
 
 	app.decorate("db", db);
@@ -93,8 +89,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	app.decorate("redis", redis);
 	app.decorate("jwt", jwt);
 	app.decorate("aiService", aiService);
-	// Fail-closed: if nothing set it (e.g. a test that doesn't opt out), the
-	// gate is on — see loadEnv's ENFORCE_CALIBRATION_GATE comment.
+	// Fail-closed — nothing set it means the gate is on (see loadEnv).
 	app.decorate("calibrationGateEnforced", enforceCalibrationGate ?? true);
 
 	app.addHook("onClose", async () => {

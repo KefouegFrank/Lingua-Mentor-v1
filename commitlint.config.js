@@ -1,10 +1,5 @@
-// Enforces this repo's established convention — visible across the whole
-// git history — of a single-line `type(scope): imperative, lowercase
-// description`. @commitlint/config-conventional already doesn't require a
-// body (its rules only fire when a body/footer is present), so extending it
-// is enough to keep bodies optional; the two customizations below narrow
-// `type` and `scope` to what this team actually uses instead of the full
-// generic conventional-commits catalogue.
+// Conventional commits, narrowed: extends config-conventional (bodies stay
+// optional) and restricts `type`/`scope` to what this repo actually uses.
 module.exports = {
 	extends: ["@commitlint/config-conventional"],
 	rules: {
@@ -13,10 +8,7 @@ module.exports = {
 			2,
 			"always",
 			[
-				// Observed in git log: feat, fix, docs. The rest are the standard
-				// conventional-commits types kept available for the kinds of
-				// changes this history hasn't needed yet (e.g. this QA pass would
-				// have been a "chore" or "test" commit).
+				// feat/fix/docs are in use; the rest are standard types kept available.
 				"feat",
 				"fix",
 				"docs",
@@ -33,8 +25,7 @@ module.exports = {
 			2,
 			"always",
 			[
-				// apps/api-gateway/src/modules/* and apps/ai-service's routers —
-				// the request-handling boundary for each domain.
+				// Per-domain request boundary: gateway modules + ai-service routers.
 				"auth",
 				"users",
 				"placement",
@@ -43,17 +34,12 @@ module.exports = {
 				"voice",
 				"exam-simulation",
 				"billing",
-				// Cross-cutting service/app names — commits that touch a whole
-				// service rather than one domain module (gateway config, CORS,
-				// the Next.js app shell, worker wiring, etc).
+				// Whole-service scopes — a commit touching a service, not one module.
 				"gateway",
 				"frontend",
 				"worker",
 				"ai-service",
-				// AI-service/worker subsystems that aren't 1:1 with a gateway
-				// route: calibration harness + Phase 0 gate, the async writing
-				// pipeline (BullMQ producer/consumer wiring), adaptive learning,
-				// readiness prediction, spaced-repetition scheduling.
+				// ai-service/worker subsystems with no 1:1 gateway route.
 				"calibration",
 				"pipeline",
 				"adaptive-learning",

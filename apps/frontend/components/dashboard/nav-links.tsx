@@ -8,15 +8,13 @@ import { NAV_ITEMS, SETTINGS_ITEM } from "@/components/dashboard/nav-config";
 import { cn } from "@/lib/utils";
 
 export interface NavLinksProps {
-	/** Called after navigating — the mobile drawer passes its own close
-	 * handler here so tapping a link closes the overlay; the desktop
-	 * sidebar passes nothing since there's no overlay to dismiss. */
+	/** Called after navigating — the mobile drawer passes its close handler so
+	 * a tap dismisses the overlay; the desktop sidebar passes nothing. */
 	onNavigate?: () => void;
 }
 
-/** The nav item list itself — rendered inside both the fixed desktop
- * sidebar and the mobile drawer, so route-active styling and the
- * live/soon distinction only exist in one place. */
+/** The nav item list, rendered in both the desktop sidebar and mobile drawer,
+ * so active styling and the live/soon distinction live in one place. */
 export function NavLinks({ onNavigate }: NavLinksProps) {
 	const pathname = usePathname();
 

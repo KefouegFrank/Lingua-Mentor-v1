@@ -1,7 +1,5 @@
-// Response DTOs mirroring api-gateway's exact JSON shapes (snake_case, as
-// the API sends it — no camelCase translation layer here, so a shape change
-// on the gateway is a single obvious diff against this file, not a silent
-// mismatch two layers away).
+// Response DTOs in the gateway's exact snake_case shapes — no translation
+// layer, so a gateway change lands as one obvious diff against this file.
 
 export interface PublicUser {
 	id: string;
@@ -64,8 +62,7 @@ export type WritingSessionStatus = "pending" | "processing" | "scored" | "failed
 
 export interface WritingCategoryScore {
 	name: string;
-	// NUMERIC(4,2) travels as a string end-to-end — parseFloat would
-	// reintroduce the rounding drift the backend's no-float rule prevents.
+	// NUMERIC(4,2) stays a string end-to-end — parseFloat reintroduces drift.
 	score: string;
 	weight: string;
 	feedback: string | null;

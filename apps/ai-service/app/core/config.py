@@ -16,17 +16,15 @@ class Settings(BaseSettings):
     jwt_public_key_path: str = "./keys/jwt_public.pem"
 
     groq_api_key: str = ""
-    # Groq model tiers (PRD §19.3 routing table). High-tier for rubric
-    # scoring/CEFR, mid-tier for grammar/Socratic. Kept in config, not code,
-    # so a provider/model change is an env edit.
+    # Model tiers (PRD §19.3): high for rubric/CEFR, mid for grammar/Socratic.
+    # In config so a provider/model change is an env edit.
     llm_model_high_tier: str = "llama-3.3-70b-versatile"
     llm_model_mid_tier: str = "llama-3.1-8b-instant"
 
     elevenlabs_api_key: str = ""  # Phase 2, unused until then
 
-    # asyncpg pool sizing — modest on purpose: Neon's pooler absorbs
-    # connection scale (ADR 0001 §3.1); the app pool just needs enough for
-    # its own concurrency.
+    # Modest pool: Neon's pooler absorbs connection scale (ADR 0001 §3.1), so
+    # this only needs the app's own concurrency.
     db_pool_min_size: int = 1
     db_pool_max_size: int = 10
 

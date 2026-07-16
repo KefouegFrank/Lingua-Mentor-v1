@@ -55,9 +55,8 @@ ADJUDICATION_BAND = Decimal("1.0")
 # else is deferred, not force-fit (see module docstring).
 CONTINUOUS_LIVE_EXAMS = frozenset({"ielts_academic", "ielts_general"})
 
-# Raw datasets often carry task-level exam ids; normalise to the config exam_id
-# the engine and harness key on. Data-contract normalisation, not engine
-# branching — unknown ids pass through unchanged.
+# Normalise raw task-level exam ids to the config exam_id the engine keys on.
+# Data-contract normalisation only — unknown ids pass through unchanged.
 EXAM_TYPE_ALIASES = {
     "ielts_academic_task2": "ielts_academic",
     "ielts_general_task2": "ielts_general",

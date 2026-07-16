@@ -13,10 +13,8 @@ describe("cn", () => {
 	});
 
 	it("lets the last conflicting Tailwind utility win instead of keeping both", () => {
-		// This is the whole reason cn() exists over a plain clsx() call — two
-		// conflicting padding utilities would otherwise both land in the
-		// class list and the browser's cascade order (not call order) would
-		// decide which one wins.
+		// Why cn() exists over clsx: otherwise both utilities land and the
+		// cascade, not call order, picks the winner.
 		expect(cn("p-2", "p-4")).toBe("p-4");
 	});
 

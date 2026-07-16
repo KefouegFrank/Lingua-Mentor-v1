@@ -1,6 +1,5 @@
-// Read-only profile lookup for GET /api/v1/user/me (PRD §35.2). Registration
-// and login already return the same shape of data on success, but /me is
-// the endpoint the frontend calls to re-hydrate a session on page load.
+// Read-only profile lookup for GET /api/v1/user/me (PRD §35.2) — what the
+// frontend calls to re-hydrate a session on page load.
 import type { DbClient } from "../../db/client";
 
 export interface UserProfile {
@@ -15,8 +14,7 @@ export interface UserProfile {
 	accentTarget: string;
 	defaultPersona: string;
 	activeTrack: string;
-	// 4D CEFR profile (PRD §22) — null until the placement test runs, or
-	// until the relevant skill dimension has real data behind it.
+	// 4D CEFR profile (PRD §22) — null until placement runs or the skill has data.
 	cefrSpeaking: string | null;
 	cefrListening: string | null;
 	cefrReading: string | null;

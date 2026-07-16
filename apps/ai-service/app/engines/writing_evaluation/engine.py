@@ -30,9 +30,8 @@ from app.providers.llm.base import LLMMessage, LLMProvider, prompt_hash
 # §19.3 routing: writing scoring = high-tier model, temperature 0.1
 # ("high-stakes rubric scoring — top model + near-zero temperature").
 SCORING_TEMPERATURE = 0.1
-# Appeal re-marks (§21.4) run at a deliberately different temperature so the
-# secondary evaluation isn't a near-deterministic replay of the first — still
-# low enough to stay rubric-consistent.
+# Appeal re-marks (§21.4) run hotter so the secondary isn't a replay of the
+# first, but still low enough to stay rubric-consistent.
 APPEAL_TEMPERATURE = 0.3
 
 _VARIANT_TEMPERATURES = {"primary": SCORING_TEMPERATURE, "appeal": APPEAL_TEMPERATURE}
