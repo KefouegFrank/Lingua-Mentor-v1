@@ -24,7 +24,7 @@ build-backend = "poetry.core.masonry.api"
 pytest = "^8.3"
 pytest-asyncio = "^0.25"
 ruff = "^0.8"
-mypy = "^1.13"
+mypy = ">=1.13,<3.0"
 types-pyyaml = "^6.0"
 
 [tool.pytest.ini_options]
