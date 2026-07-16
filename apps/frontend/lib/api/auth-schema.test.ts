@@ -35,6 +35,16 @@ describe("registerBodySchema", () => {
 		expect(result.success).toBe(false);
 	});
 
+	it("trims and lowercases the email", () => {
+		const result = registerBodySchema.safeParse({
+			email: " Ada.Lovelace@Example.COM ",
+			password: "correct-horse",
+			display_name: "Ada Lovelace",
+			target_language: "en",
+		});
+		expect(result.success && result.data.email).toBe("ada.lovelace@example.com");
+	});
+
 	it("rejects a target_language outside the Phase 1 scope (en/fr)", () => {
 		const result = registerBodySchema.safeParse({
 			email: "learner@example.com",
@@ -73,5 +83,13 @@ describe("loginBodySchema", () => {
 			password: "",
 		});
 		expect(result.success).toBe(false);
+	});
+
+	it("normalizes the email the same way register does", () => {
+		const result = loginBodySchema.safeParse({
+			email: " Learner@Example.COM ",
+			password: "whatever-they-picked",
+		});
+		expect(result.success && result.data.email).toBe("learner@example.com");
 	});
 });

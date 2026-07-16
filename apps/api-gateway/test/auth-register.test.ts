@@ -178,6 +178,23 @@ describe("POST /api/v1/auth/register", () => {
 		expect(res.json().error.field).toBe("email");
 	});
 
+	it("lowercases the email before it reaches the insert", async () => {
+		// Otherwise "Frank@Example.com" registers alongside "frank@example.com":
+		// the unique constraint compares case-sensitively and lets both through.
+		const db = dbWithInsertSuccess();
+		const { app } = await buildTestApp({ db });
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/v1/auth/register",
+			payload: { ...VALID_BODY, email: "  New.Learner@Example.COM " },
+		});
+
+		expect(res.statusCode).toBe(201);
+		const userInsert = db.calls.find((c) => c.text.includes("INSERT INTO users"));
+		expect(userInsert?.params?.[0]).toBe("new.learner@example.com");
+	});
+
 	it("rejects a target_language outside the Phase 1 scope (en, fr)", async () => {
 		const { app } = await buildTestApp({ db: dbWithInsertSuccess() });
 

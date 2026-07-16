@@ -12,6 +12,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     text,
@@ -31,6 +32,9 @@ from app.db.models.enums import (
 
 class User(Base):
     __tablename__ = "users"
+
+    # Case-insensitive uniqueness holds even for writes that skip the Zod boundary.
+    __table_args__ = (Index("uq_users_email_lower", text("lower(email)"), unique=True),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")

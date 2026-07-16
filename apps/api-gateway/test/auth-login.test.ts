@@ -64,6 +64,21 @@ describe("POST /api/v1/auth/login", () => {
 		expect(update?.params).toEqual([EXISTING_USER_ID]);
 	});
 
+	it("looks the user up by the lowercased email, so casing at the keyboard doesn't matter", async () => {
+		const db = await dbWithUser();
+		const { app } = await buildTestApp({ db });
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/v1/auth/login",
+			payload: { email: "Learner@Example.COM", password: PASSWORD },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const lookup = db.calls.find((c) => c.text.includes("FROM users u"));
+		expect(lookup?.params?.[0]).toBe("learner@example.com");
+	});
+
 	it("returns 401 INVALID_CREDENTIALS for an unknown email", async () => {
 		const db = makeFakeDb([{ match: "FROM users u", rows: [] }]);
 		const { app } = await buildTestApp({ db });

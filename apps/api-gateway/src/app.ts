@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
+import fastifyHelmet from "@fastify/helmet";
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { type AiServiceClient, createAiServiceClient } from "./clients/ai-service";
@@ -50,6 +51,14 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 
 	// Direct call, not app.register — Fastify v5 would scope it to the plugin.
 	registerErrorEnvelope(app);
+
+	// This API only ever emits JSON, so nothing should render, frame or embed it.
+	app.register(fastifyHelmet, {
+		contentSecurityPolicy: {
+			useDefaults: false,
+			directives: { "default-src": ["'none'"], "frame-ancestors": ["'none'"] },
+		},
+	});
 
 	// At root, ahead of every route plugin that reads or sets a cookie.
 	app.register(fastifyCookie);
