@@ -19,11 +19,11 @@ jobs:
       # Two setup-node steps: corepack (which reads the packageManager
       # field, pnpm@9.0.0) has to be enabled before cache: 'pnpm' can find
       # pnpm on PATH to resolve the store location.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
