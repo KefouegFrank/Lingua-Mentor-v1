@@ -9,6 +9,7 @@ import type {
 	EvaluatePlacementInput,
 	ExamPreview,
 	PlacementTaskDto,
+	SrsScheduleDto,
 } from "../src/clients/ai-service";
 import type { DbClient, Queryable } from "../src/db/client";
 import { type AccessTokenClaims, JwtStrategy } from "../src/modules/auth/jwt.strategy";
@@ -110,6 +111,9 @@ export function makeFakeRedis(): FakeRedis {
 			store.set(key, value);
 			ttls.set(key, ttlSeconds);
 		},
+		async get(key) {
+			return store.get(key) ?? null;
+		},
 		async getdel(key) {
 			const value = store.get(key) ?? null;
 			store.delete(key);
@@ -158,9 +162,11 @@ export function makeFakeAiService(
 		profile?: CefrProfileDto;
 		exams?: ExamPreview[];
 		task?: PlacementTaskDto;
+		srs?: SrsScheduleDto;
 		evaluateError?: unknown;
 		profileError?: unknown;
 		taskError?: unknown;
+		srsError?: unknown;
 	} = {},
 ): FakeAiService {
 	const calls: Array<{ method: string; args: unknown }> = [];
@@ -188,6 +194,11 @@ export function makeFakeAiService(
 			calls.push({ method: "getPlacementTask", args: examType });
 			if (opts.taskError) throw opts.taskError;
 			return opts.task ?? DEFAULT_PLACEMENT_TASK;
+		},
+		async getSrsSchedule(learnerProfileId: string) {
+			calls.push({ method: "getSrsSchedule", args: learnerProfileId });
+			if (opts.srsError) throw opts.srsError;
+			return opts.srs ?? DEFAULT_SRS_SCHEDULE;
 		},
 		async listExams() {
 			calls.push({ method: "listExams", args: undefined });
@@ -271,4 +282,31 @@ export async function buildTestApp(
 
 export const LEARNER_PROFILE_ID = DEFAULT_TEST_CLAIMS.lpid;
 export const SESSION_ID = "0a1b2c3d-aaaa-4bbb-8ccc-ddddeeeeffff";
+
+export const DEFAULT_SRS_SCHEDULE: SrsScheduleDto = {
+	learner_profile_id: LEARNER_PROFILE_ID,
+	language: "en",
+	next_dimension: "vocabulary",
+	next_priority: 0.72,
+	schedule: [
+		{
+			dimension: "vocabulary",
+			priority: 0.72,
+			overdue_ratio: 1.0,
+			skill_gap: 0.8,
+			volatility: 0,
+			days_since_practice: null,
+			interval_days: 1,
+		},
+		{
+			dimension: "grammar",
+			priority: 0.4,
+			overdue_ratio: 0.5,
+			skill_gap: 0.5,
+			volatility: 0,
+			days_since_practice: 2,
+			interval_days: 4,
+		},
+	],
+};
 export const USER_ID = DEFAULT_TEST_CLAIMS.sub;

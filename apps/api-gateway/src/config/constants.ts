@@ -44,3 +44,11 @@ export const REFRESH_COOKIE_PATH = "/api/v1/auth";
 
 // Marks a refresh token as still live — rotation logic in auth.service.ts.
 export const REFRESH_KEY_PREFIX = "refresh:";
+
+// --- SRS ---
+// Key shape fixed by PRD §23.3; skill_vectors stays the source of truth.
+export const SRS_STATE_KEY_PREFIX = "srs_state:";
+
+// Short because nothing invalidates this yet: the schedule only moves when a
+// session completes, and that endpoint lands with the daily micro-session.
+export const SRS_STATE_TTL_SECONDS = 300;

@@ -30,22 +30,15 @@ export interface WritingCategory {
 
 export interface WritingResult {
 	session_id: string;
-	// "pending" | "processing" | "failed" | "scored" | "awaiting_calibration"
 	status: string;
-	// Present on any terminal scored result: whether the band was produced under
-	// an active calibration baseline. False + gate enforced ⇒ band withheld.
 	calibrated?: boolean;
 	// Explains a withheld score (status "awaiting_calibration") to the user.
 	message?: string;
 	exam_type?: string;
 	word_count?: number | null;
-	// NUMERIC stays a string end-to-end — parseFloat reintroduces the drift
-	// NUMERIC(4,2) exists to prevent.
 	overall_band_score?: string | null;
 	cefr_level?: string | null;
 	calibration_version?: string | null;
-	// The trust signal of PRD §21.3: the baseline this score was actually
-	// produced under, not whatever is active now — "was calibrated against".
 	calibration_sample_count?: number | null;
 	calibration_correlation?: string | null;
 	submitted_at?: string;
@@ -243,14 +236,11 @@ export interface AppealDeps {
 
 export interface AppealResult {
 	appeal_id: string;
-	// "pending" | "processing" | "resolved" | "failed"
 	status: string;
 	writing_session_id: string;
-	// NUMERICs stay strings — same no-drift rule as WritingResult.
 	original_score: string;
 	secondary_score?: string | null;
 	discrepancy_delta?: string | null;
-	// PRD §21.4: delta > 0.5 band flags the appeal for human review.
 	requires_human_review?: boolean;
 	created_at: string;
 	resolved_at?: string | null;
@@ -361,7 +351,7 @@ export async function getAppeal(
 		result.requires_human_review = Boolean(row.requires_human_review);
 	}
 	if (status === "failed") {
-		// PRD §37.4: a failed secondary evaluation keeps the original score
+		// a failed secondary evaluation keeps the original score
 		// displayed and tells the learner they can retry.
 		result.message =
 			"The secondary evaluation could not be completed. Your original score stands — you can submit the appeal again.";

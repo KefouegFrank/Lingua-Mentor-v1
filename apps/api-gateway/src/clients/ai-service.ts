@@ -49,10 +49,29 @@ export interface ExamPreview {
 	categories: ExamRubricCategory[];
 }
 
+export interface DimensionPriorityDto {
+	dimension: string;
+	priority: number;
+	overdue_ratio: number;
+	skill_gap: number;
+	volatility: number;
+	days_since_practice: number | null;
+	interval_days: number;
+}
+
+export interface SrsScheduleDto {
+	learner_profile_id: string;
+	language: string;
+	next_dimension: string;
+	next_priority: number;
+	schedule: DimensionPriorityDto[];
+}
+
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
 	getPlacementTask(examType: string): Promise<PlacementTaskDto>;
 	getCefrProfile(learnerProfileId: string): Promise<CefrProfileDto>;
+	getSrsSchedule(learnerProfileId: string): Promise<SrsScheduleDto>;
 	listExams(): Promise<ExamPreview[]>;
 }
 
@@ -103,6 +122,12 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 		},
 		getPlacementTask(examType) {
 			return call<PlacementTaskDto>(`/api/v1/placement/task/${examType}`, { method: "GET" });
+		},
+		getSrsSchedule(learnerProfileId) {
+			return call<SrsScheduleDto>(
+				`/api/v1/adaptive/srs-next?learner_profile_id=${encodeURIComponent(learnerProfileId)}`,
+				{ method: "GET" },
+			);
 		},
 		getCefrProfile(learnerProfileId) {
 			return call<CefrProfileDto>(`/api/v1/placement/profile/${learnerProfileId}`, {

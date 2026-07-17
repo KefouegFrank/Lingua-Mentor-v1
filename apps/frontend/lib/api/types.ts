@@ -101,7 +101,7 @@ export interface WritingResult {
 	overall_band_score?: string | null;
 	cefr_level?: string | null;
 	calibration_version?: string | null;
-	// The baseline this score was produced under (PRD §21.3) — not the current
+	// The baseline this score was produced under — not the current
 	// one, so an older score never borrows a newer correlation.
 	calibration_sample_count?: number | null;
 	calibration_correlation?: string | null;
@@ -112,7 +112,7 @@ export interface WritingResult {
 	vocabulary_suggestions?: VocabularySuggestion[];
 }
 
-/** GET /api/v1/writing/calibration (PRD §35.4) — current baseline for the
+/** GET /api/v1/writing/calibration — current baseline for the
  * learner's target exam. `calibrated: false` is an answer, not a failure. */
 export interface CalibrationMetadata {
 	exam_type: string;
@@ -139,7 +139,7 @@ export interface AppealResult {
 }
 
 /** The {error:{code,message,field?}} shape every gateway/ai-service error
- * response shares (PRD §34.1) — thrown as ApiError by the client below. */
+ * response shares — thrown as ApiError by the client below. */
 export interface ErrorEnvelope {
 	error: { code: string; message: string; field?: string };
 }
