@@ -1,9 +1,10 @@
 // GET /api/v1/user/me (PRD §35.2) — registered under /api/v1/user in app.ts.
 import type { FastifyInstance } from "fastify";
 
+import { REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH } from "../../config/constants";
 import { authenticate } from "../../middleware/authenticate";
 import { AppError } from "../../plugins/error-envelope";
-import { getUserProfile, type UserProfile } from "./users.service";
+import { eraseAccount, getUserProfile, type UserProfile } from "./users.service";
 
 function toResponseProfile(profile: UserProfile) {
 	return {
@@ -36,6 +37,17 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
 			throw new AppError(404, "NOT_FOUND", "user not found");
 		}
 		return toResponseProfile(profile);
+	});
+
+	// GDPR erasure (ADR 0007). Acts only on the caller's own sub claim, and is
+	// irreversible — a second call finds nothing left to erase.
+	app.delete("/me", async (request, reply) => {
+		const erased = await eraseAccount(app.db, request.user!.userId);
+		if (!erased) {
+			throw new AppError(404, "NOT_FOUND", "user not found");
+		}
+		reply.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
+		return reply.status(204).send();
 	});
 
 	// Proxied from ai-service so the assessed/proxy/pending source rules live

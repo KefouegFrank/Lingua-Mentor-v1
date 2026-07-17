@@ -8,7 +8,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.engines.writing_evaluation import EvaluationError, UnknownExamError
+from app.engines.writing_evaluation import (
+    EvaluationError,
+    PlacementUnavailableError,
+    UnknownExamError,
+)
 
 
 def envelope(code: str, message: str, field: str | None = None) -> dict:
@@ -51,6 +55,15 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=envelope("UNKNOWN_EXAM", str(exc), "exam_type"),
+        )
+
+    @app.exception_handler(PlacementUnavailableError)
+    async def placement_unavailable_handler(request: Request, exc: PlacementUnavailableError):
+        # A known exam that simply can't seat a placement yet — the client has to
+        # tell the learner that plainly, so it needs a code it can branch on.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=envelope("PLACEMENT_NOT_AVAILABLE", str(exc), "exam_type"),
         )
 
     @app.exception_handler(EvaluationError)

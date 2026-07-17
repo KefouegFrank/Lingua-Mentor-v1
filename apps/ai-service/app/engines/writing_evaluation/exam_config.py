@@ -81,6 +81,11 @@ class UnknownExamError(ValueError):
     """Raised when no YAML exists for the requested exam_id."""
 
 
+class PlacementUnavailableError(ValueError):
+    """Raised when a known exam defines no placement task — a settled answer
+    about that exam, not a fault."""
+
+
 @lru_cache
 def load_exam_config(exam_id: str) -> ExamConfig:
     path = EXAMS_DIR / f"{exam_id}.yaml"
@@ -89,3 +94,11 @@ def load_exam_config(exam_id: str) -> ExamConfig:
         raise UnknownExamError(f"unknown exam '{exam_id}' — known: {known}")
     with path.open() as f:
         return ExamConfig.model_validate(yaml.safe_load(f))
+
+
+def load_placement_task(exam_id: str) -> tuple[ExamConfig, PlacementTask]:
+    """The exam and its placement task, or raise if it can't seat one."""
+    config = load_exam_config(exam_id)
+    if config.placement is None:
+        raise PlacementUnavailableError(f"'{exam_id}' has no placement task configured")
+    return config, config.placement

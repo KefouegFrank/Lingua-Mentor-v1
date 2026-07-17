@@ -15,20 +15,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useInvalidateCefrProfile } from "@/hooks/use-cefr-profile";
+import { useMe } from "@/hooks/use-me";
 import { usePlacementTask } from "@/hooks/use-placement-task";
 import { ApiError } from "@/lib/api/client";
 import { submitPlacement } from "@/lib/api/placement";
 import type { CefrProfile, PlacementTask } from "@/lib/api/types";
 import { countWords } from "@/lib/utils";
 
-function TaskUnavailable({ error }: { error: unknown }) {
-	// The gateway's copy is the product's answer on both of these — restating it
-	// here would just be a second version to keep in sync.
+function TaskUnavailable({ error, examName }: { error: unknown; examName?: string }) {
+	// The gateway's copy is the product's answer on this one — restating it here
+	// would just be a second version to keep in sync.
 	if (error instanceof ApiError && error.code === "AWAITING_CALIBRATION") {
 		return (
 			<Alert variant="warning">
 				<AlertTitle>Placement isn&apos;t open yet</AlertTitle>
 				<AlertDescription>{error.message}</AlertDescription>
+			</Alert>
+		);
+	}
+	// Not a fault: the exam is real, it just has no placement task yet. The
+	// upstream message names the exam id, which isn't the learner's language.
+	if (error instanceof ApiError && error.code === "PLACEMENT_NOT_AVAILABLE") {
+		return (
+			<Alert variant="warning">
+				<AlertTitle>Placement isn&apos;t available for {examName ?? "your target exam"}</AlertTitle>
+				<AlertDescription>
+					We only open the placement test for exams whose scoring has been calibrated against
+					certified human examiners, and {examName ?? "this exam"} isn&apos;t there yet. IELTS
+					Academic and IELTS General are the exams we can mark today.
+				</AlertDescription>
 			</Alert>
 		);
 	}
@@ -175,6 +190,7 @@ function PlacementForm({ task }: { task: PlacementTask }) {
 
 export default function PlacementPage() {
 	const taskQuery = usePlacementTask();
+	const meQuery = useMe();
 
 	return (
 		<div>
@@ -184,7 +200,12 @@ export default function PlacementPage() {
 			/>
 			<div className="max-w-3xl space-y-6 p-6">
 				{taskQuery.isLoading && <Skeleton className="h-96 w-full" />}
-				{taskQuery.isError && <TaskUnavailable error={taskQuery.error} />}
+				{taskQuery.isError && (
+					<TaskUnavailable
+						error={taskQuery.error}
+						examName={meQuery.data?.target_exam?.replace(/_/g, " ")}
+					/>
+				)}
 				{taskQuery.data && <PlacementForm task={taskQuery.data} />}
 			</div>
 		</div>
