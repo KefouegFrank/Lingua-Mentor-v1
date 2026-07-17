@@ -7,6 +7,7 @@ import type {
 	AiServiceClient,
 	CefrProfileDto,
 	EvaluatePlacementInput,
+	DailySessionDto,
 	ExamPreview,
 	PersonaDto,
 	PlacementTaskDto,
@@ -180,6 +181,21 @@ const DEFAULT_PLACEMENT_TASK: PlacementTaskDto = {
 	word_count_min: 250,
 };
 
+export const DEFAULT_DAILY_SESSION: DailySessionDto = {
+	session_id: "11111111-2222-4333-8444-555555555555",
+	session_date: new Date().toISOString().slice(0, 10),
+	skill_targeted: "grammar",
+	srs_priority_score: 0.6,
+	session_content: {
+		type: "grammar_drill",
+		prompt: "Rewrite each sentence using the correct verb form.",
+		exercises: [{ item: "She go to work yesterday.", focus: "past simple" }],
+		estimated_duration_minutes: 5,
+	},
+	pre_session_score: 0.5,
+	generated: true,
+};
+
 /** Records calls and returns a canned 4D profile; override the profile or make
  * a method throw to exercise error paths. */
 export function makeFakeAiService(
@@ -189,6 +205,8 @@ export function makeFakeAiService(
 		task?: PlacementTaskDto;
 		srs?: SrsScheduleDto;
 		personas?: PersonaDto[];
+		dailySession?: DailySessionDto;
+		dailySessionError?: unknown;
 		evaluateError?: unknown;
 		profileError?: unknown;
 		taskError?: unknown;
@@ -225,6 +243,11 @@ export function makeFakeAiService(
 			calls.push({ method: "getSrsSchedule", args: learnerProfileId });
 			if (opts.srsError) throw opts.srsError;
 			return opts.srs ?? DEFAULT_SRS_SCHEDULE;
+		},
+		async generateDailySession(learnerProfileId: string) {
+			calls.push({ method: "generateDailySession", args: learnerProfileId });
+			if (opts.dailySessionError) throw opts.dailySessionError;
+			return opts.dailySession ?? DEFAULT_DAILY_SESSION;
 		},
 		async listPersonas() {
 			calls.push({ method: "listPersonas", args: undefined });

@@ -11,6 +11,7 @@ import httpx
 
 EVALUATE_PATH = "/api/v1/writing-eval/evaluate"
 APPEAL_PATH = "/api/v1/writing-eval/appeal"
+DAILY_DIAGNOSTIC_PATH = "/api/v1/mentor/daily-diagnostic"
 
 
 class TerminalEvalError(Exception):
@@ -87,6 +88,23 @@ async def evaluate_appeal(
         raise RetryableEvalError(str(exc)) from exc
 
     if response.status_code == 200:
+        return response.json()
+    if 400 <= response.status_code < 500:
+        raise TerminalEvalError(_envelope_message(response))
+    raise RetryableEvalError(_envelope_message(response))
+
+
+async def generate_daily_session(http: httpx.AsyncClient, *, learner_profile_id: UUID) -> dict:
+    """Ask ai-service for today's drill. Same 4xx/5xx taxonomy as above."""
+    try:
+        response = await http.post(
+            DAILY_DIAGNOSTIC_PATH,
+            json={"learner_profile_id": str(learner_profile_id)},
+        )
+    except httpx.HTTPError as err:
+        raise RetryableEvalError(f"ai-service unreachable: {err}") from err
+
+    if response.is_success:
         return response.json()
     if 400 <= response.status_code < 500:
         raise TerminalEvalError(_envelope_message(response))

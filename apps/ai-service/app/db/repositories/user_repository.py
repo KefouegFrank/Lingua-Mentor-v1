@@ -11,6 +11,23 @@ from uuid import UUID
 import asyncpg
 
 
+async def get_subscription_tier(
+    conn: asyncpg.Connection, learner_profile_id: UUID
+) -> str | None:
+    """The tier that gates persona choice (§17.4). Read fresh rather than taken
+    from the caller: the JWT's `tier` claim is up to 15 minutes stale.
+    """
+    return await conn.fetchval(
+        """
+        SELECT u.subscription_tier
+        FROM users u
+        JOIN learner_profiles lp ON lp.user_id = u.id
+        WHERE lp.id = $1
+        """,
+        learner_profile_id,
+    )
+
+
 async def get_learner_profile(
     conn: asyncpg.Connection, learner_profile_id: UUID
 ) -> asyncpg.Record | None:

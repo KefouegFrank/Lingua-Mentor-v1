@@ -72,6 +72,11 @@ class DailySession(Base):
     __tablename__ = "daily_sessions"
     __table_args__ = (
         Index("ix_daily_sessions_learner_date", "learner_profile_id", "session_date"),
+        # One session per learner per UTC day — the batch and an on-demand
+        # request must converge on one row, not race into two (ADR 0009 §2.4).
+        UniqueConstraint(
+            "learner_profile_id", "session_date", name="uq_daily_sessions_learner_date"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

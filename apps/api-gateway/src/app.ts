@@ -19,7 +19,10 @@ import { registerErrorEnvelope } from "./plugins/error-envelope";
 import {
 	type AppealEvalQueue,
 	createAppealEvalQueue,
+	createSrsBatchQueue,
 	createWritingEvalQueue,
+	scheduleSrsBatch,
+	type SrsBatchQueue,
 	type WritingEvalQueue,
 } from "./queue/bullmq-client";
 import { createRedisKv, type RedisKv } from "./redis/client";
@@ -33,6 +36,7 @@ declare module "fastify" {
 		jwt: JwtStrategy;
 		calibrationGateEnforced: boolean;
 		aiService: AiServiceClient;
+		srsBatchQueue?: SrsBatchQueue;
 	}
 }
 
@@ -46,6 +50,7 @@ export interface AppOptions {
 	enforceCalibrationGate?: boolean;
 	aiService?: AiServiceClient;
 	corsOrigins?: string[];
+	srsBatchQueue?: SrsBatchQueue;
 }
 
 export function buildApp(opts: AppOptions = {}): FastifyInstance {
@@ -73,6 +78,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	let enforceCalibrationGate = opts.enforceCalibrationGate;
 	let aiService = opts.aiService;
 	let corsOrigins = opts.corsOrigins;
+	let srsBatchQueue = opts.srsBatchQueue;
 	if (!db || !queue || !appealQueue || !redis || !jwt || !aiService || !corsOrigins) {
 		const env = loadEnv();
 		db = db ?? createPool(env.databaseUrl);
@@ -88,6 +94,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 		enforceCalibrationGate = enforceCalibrationGate ?? env.enforceCalibrationGate;
 		aiService = aiService ?? createAiServiceClient(env.aiServiceUrl);
 		corsOrigins = corsOrigins ?? env.corsOrigins;
+		srsBatchQueue = srsBatchQueue ?? createSrsBatchQueue(env.redisUrl);
 	}
 
 	// The refresh cookie is cross-origin, so credentials must be on — and once
@@ -100,12 +107,25 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	app.decorate("redis", redis);
 	app.decorate("jwt", jwt);
 	app.decorate("aiService", aiService);
+	app.decorate("srsBatchQueue", srsBatchQueue);
 	// Fail-closed — nothing set it means the gate is on (see loadEnv).
 	app.decorate("calibrationGateEnforced", enforceCalibrationGate ?? true);
+
+	// Upsert is idempotent by id, so every replica doing this on boot is fine.
+	// A failure must not stop the API serving — the batch is an optimisation.
+	app.addHook("onReady", async () => {
+		if (!app.srsBatchQueue) return;
+		try {
+			await scheduleSrsBatch(app.srsBatchQueue);
+		} catch (err) {
+			app.log.error({ err }, "could not register the daily-session batch schedule");
+		}
+	});
 
 	app.addHook("onClose", async () => {
 		await app.writingQueue.close?.();
 		await app.appealQueue.close?.();
+		await app.srsBatchQueue?.close?.();
 		await app.redis.quit?.();
 		await app.db.end?.();
 	});

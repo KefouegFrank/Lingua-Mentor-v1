@@ -10,6 +10,8 @@ class Settings:
     database_url: str
     ai_service_url: str
     concurrency: int = 2
+    # ADR 0009 §2.2 — pre-generate only for learners who actually open the app.
+    pregeneration_active_window_days: int = 14
 
 
 def load_settings() -> Settings:
@@ -24,4 +26,7 @@ def load_settings() -> Settings:
         database_url=required["DATABASE_URL"],  # type: ignore[arg-type]
         ai_service_url=required["AI_SERVICE_URL"],  # type: ignore[arg-type]
         concurrency=int(os.environ.get("WORKER_CONCURRENCY", "2")),
+        pregeneration_active_window_days=int(
+            os.environ.get("PREGENERATION_ACTIVE_WINDOW_DAYS", "14")
+        ),
     )

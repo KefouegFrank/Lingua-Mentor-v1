@@ -10,18 +10,36 @@ from typing import Any
 
 import asyncpg
 import httpx
+from bullmq import Queue
 
-from app.tasks import appeal_eval_task, writing_eval_task
+from app.tasks import (
+    appeal_eval_task,
+    daily_session_generation_task,
+    srs_batch_generation_task,
+    writing_eval_task,
+)
 
 QUEUE_WRITING_EVAL = "writing_eval"
 QUEUE_APPEAL_EVAL = "appeal_eval"
+QUEUE_SRS_BATCH_GENERATION = "srs_batch_generation"
+QUEUE_DAILY_SESSION_GENERATION = "daily_session_generation"
 
 Processor = Callable[[Any, str], Awaitable[Any]]
 
 
-def build_queue_registry(pool: asyncpg.Pool, http: httpx.AsyncClient) -> dict[str, Processor]:
+def build_queue_registry(
+    pool: asyncpg.Pool,
+    http: httpx.AsyncClient,
+    fanout_queue: Queue,
+    active_within_days: int,
+) -> dict[str, Processor]:
     return {
         QUEUE_WRITING_EVAL: writing_eval_task.make_processor(pool, http),
         QUEUE_APPEAL_EVAL: appeal_eval_task.make_processor(pool, http),
-        # Later slices: srs_batch_generation, calibration_recompute
+        # The 2AM job the gateway schedules; it enqueues onto the queue below.
+        QUEUE_SRS_BATCH_GENERATION: srs_batch_generation_task.make_processor(
+            pool, fanout_queue, active_within_days
+        ),
+        QUEUE_DAILY_SESSION_GENERATION: daily_session_generation_task.make_processor(pool, http),
+        # Later slices: calibration_recompute
     }

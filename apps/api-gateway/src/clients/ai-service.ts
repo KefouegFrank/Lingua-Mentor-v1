@@ -75,12 +75,33 @@ export interface PersonaDto {
 	pro_only: boolean;
 }
 
+export interface DailySessionExercise {
+	item: string;
+	focus: string;
+}
+
+export interface DailySessionDto {
+	session_id: string;
+	session_date: string;
+	skill_targeted: string;
+	srs_priority_score: number;
+	session_content: {
+		type: string;
+		prompt: string;
+		exercises: DailySessionExercise[];
+		estimated_duration_minutes: number;
+	};
+	pre_session_score: number;
+	generated: boolean;
+}
+
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
 	getPlacementTask(examType: string): Promise<PlacementTaskDto>;
 	getCefrProfile(learnerProfileId: string): Promise<CefrProfileDto>;
 	getSrsSchedule(learnerProfileId: string): Promise<SrsScheduleDto>;
 	listPersonas(): Promise<PersonaDto[]>;
+	generateDailySession(learnerProfileId: string): Promise<DailySessionDto>;
 	listExams(): Promise<ExamPreview[]>;
 }
 
@@ -141,6 +162,12 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 		getCefrProfile(learnerProfileId) {
 			return call<CefrProfileDto>(`/api/v1/placement/profile/${learnerProfileId}`, {
 				method: "GET",
+			});
+		},
+		generateDailySession(learnerProfileId) {
+			return call<DailySessionDto>("/api/v1/mentor/daily-diagnostic", {
+				method: "POST",
+				body: JSON.stringify({ learner_profile_id: learnerProfileId }),
 			});
 		},
 		listPersonas() {

@@ -147,7 +147,10 @@ export async function loginUser(
 		throw new AppError(401, "INVALID_CREDENTIALS", "email or password is incorrect");
 	}
 
-	await deps.db.query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [row.id]);
+	await deps.db.query(
+		`UPDATE users SET last_login_at = now(), last_active_at = now() WHERE id = $1`,
+		[row.id],
+	);
 
 	const user = toPublicUser(row);
 	const tokens = await issueTokens(deps, user);
@@ -189,6 +192,10 @@ export async function refreshSession(
 	if (!storedUserId || storedUserId !== claims.sub) {
 		throw new AppError(401, "INVALID_REFRESH_TOKEN", "refresh token has already been used or revoked");
 	}
+
+	// Opening the app refreshes rather than logs in, so this is the only place
+	// that learns a returning learner is still here (ADR 0009 §2.3).
+	await deps.db.query(`UPDATE users SET last_active_at = now() WHERE id = $1`, [claims.sub]);
 
 	const user = toPublicUser(row);
 	const tokens = await issueTokens(deps, user);

@@ -51,6 +51,9 @@ class User(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "Last opened the app", which last_login_at can't answer: the silent refresh
+    # never logs in, and refresh tokens rotate forever (ADR 0009 §2.3).
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # GDPR (PRD §10.5): erasure is a state transition, not a row delete —
     # anonymised aggregates must survive.
     gdpr_erasure_requested_at: Mapped[datetime | None] = mapped_column(

@@ -5,9 +5,14 @@ import IORedis from "ioredis";
 import {
 	APPEAL_EVAL_JOB_OPTIONS,
 	JOB_APPEAL_EVALUATE,
+	JOB_SRS_BATCH_GENERATE,
 	JOB_WRITING_EVALUATE,
 	QUEUE_APPEAL_EVAL,
+	QUEUE_SRS_BATCH_GENERATION,
 	QUEUE_WRITING_EVAL,
+	SRS_BATCH_CRON,
+	SRS_BATCH_SCHEDULER_ID,
+	SRS_BATCH_TZ,
 	WRITING_EVAL_JOB_OPTIONS,
 } from "../config/constants";
 
@@ -72,4 +77,30 @@ export function createAppealEvalQueue(redisUrl: string): Queue {
 export function enqueueAppealEval(queue: AppealEvalQueue, appealId: string): Promise<unknown> {
 	// jobId = appeal_id — idempotent per appeal, like jobId = session_id above.
 	return queue.add(JOB_APPEAL_EVALUATE, { appeal_id: appealId }, { jobId: appealId });
+}
+
+/** Fan-out trigger. Carries no data: the worker reads the active-learner set
+ * itself, which would be stale by 2AM if the scheduler had baked it in. */
+export interface SrsBatchQueue {
+	upsertJobScheduler(
+		id: string,
+		repeat: { pattern: string; tz?: string },
+		template?: { name: string },
+	): Promise<unknown>;
+	close?(): Promise<void>;
+}
+
+export function createSrsBatchQueue(redisUrl: string): Queue {
+	const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+	return new Queue(QUEUE_SRS_BATCH_GENERATION, { connection });
+}
+
+/** Registers the 2AM UTC batch. `repeat` was deprecated in BullMQ 5.16 for Job
+ * Schedulers; the Python worker has neither API and only consumes what lands. */
+export function scheduleSrsBatch(queue: SrsBatchQueue): Promise<unknown> {
+	return queue.upsertJobScheduler(
+		SRS_BATCH_SCHEDULER_ID,
+		{ pattern: SRS_BATCH_CRON, tz: SRS_BATCH_TZ },
+		{ name: JOB_SRS_BATCH_GENERATE },
+	);
 }
