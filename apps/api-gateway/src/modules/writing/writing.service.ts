@@ -44,6 +44,10 @@ export interface WritingResult {
 	overall_band_score?: string | null;
 	cefr_level?: string | null;
 	calibration_version?: string | null;
+	// The trust signal of PRD §21.3: the baseline this score was actually
+	// produced under, not whatever is active now — "was calibrated against".
+	calibration_sample_count?: number | null;
+	calibration_correlation?: string | null;
 	submitted_at?: string;
 	scored_at?: string | null;
 	categories?: WritingCategory[];
@@ -51,8 +55,60 @@ export interface WritingResult {
 	vocabulary_suggestions?: unknown;
 }
 
+/** What PRD §21.3 puts in front of the learner: how well the AI agreed with
+ * human graders, and over how many essays. */
+export interface CalibrationMetadata {
+	exam_type: string;
+	calibrated: boolean;
+	calibration_version?: string;
+	sample_count?: number;
+	overall_pearson?: string;
+	calibration_date?: string;
+}
+
 export function countWords(text: string): number {
 	return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Current baseline for the learner's target exam (PRD §35.4). Uncalibrated is
+ * a real answer here, not an error — it's what the trust banner reports. */
+export async function getCalibrationMetadata(
+	db: DbClient,
+	learnerProfileId: string,
+): Promise<CalibrationMetadata> {
+	const { rows: profileRows } = await db.query(
+		`SELECT target_exam FROM learner_profiles WHERE id = $1`,
+		[learnerProfileId],
+	);
+	const targetExam = profileRows[0]?.target_exam;
+	if (!targetExam) {
+		throw new AppError(400, "NO_TARGET_EXAM", "set a target exam to see its calibration status");
+	}
+
+	const { rows } = await db.query(
+		`SELECT calibration_version, sample_count, overall_pearson, calibration_date
+		 FROM calibration_baselines
+		 WHERE exam_type = $1 AND displayed_on_reports = true
+		 ORDER BY calibration_date DESC
+		 LIMIT 1`,
+		[targetExam],
+	);
+	const row = rows[0];
+	if (!row) return { exam_type: String(targetExam), calibrated: false };
+
+	const calibrationDate =
+		row.calibration_date instanceof Date
+			? row.calibration_date.toISOString()
+			: String(row.calibration_date);
+
+	return {
+		exam_type: String(targetExam),
+		calibrated: true,
+		calibration_version: String(row.calibration_version),
+		sample_count: row.sample_count as number,
+		overall_pearson: String(row.overall_pearson),
+		calibration_date: calibrationDate,
+	};
 }
 
 export async function submitWriting(
@@ -101,9 +157,12 @@ export async function getWritingResult(
 				b.category_2_name, b.category_2_score, b.category_2_weight, b.category_2_feedback,
 				b.category_3_name, b.category_3_score, b.category_3_weight, b.category_3_feedback,
 				b.category_4_name, b.category_4_score, b.category_4_weight, b.category_4_feedback,
-				b.grammar_corrections, b.vocabulary_suggestions
+				b.grammar_corrections, b.vocabulary_suggestions,
+				cb.sample_count, cb.overall_pearson
 		 FROM writing_sessions ws
 		 LEFT JOIN writing_score_breakdowns b ON b.writing_session_id = ws.id
+		 LEFT JOIN calibration_baselines cb
+			ON cb.calibration_version = ws.calibration_version AND cb.exam_type = ws.exam_type
 		 WHERE ws.id = $1 AND ws.learner_profile_id = $2`,
 		[sessionId, learnerProfileId],
 	);
@@ -164,6 +223,9 @@ export async function getWritingResult(
 		overall_band_score: row.overall_band_score as string | null,
 		cefr_level: row.cefr_level as string | null,
 		calibration_version: row.calibration_version as string | null,
+		calibration_sample_count: (row.sample_count as number | null) ?? null,
+		// NUMERIC(5,4) — a string for the same no-drift reason as the band.
+		calibration_correlation: row.overall_pearson == null ? null : String(row.overall_pearson),
 		submitted_at: submittedAt,
 		scored_at: scoredAt,
 		categories,

@@ -101,11 +101,26 @@ export interface WritingResult {
 	overall_band_score?: string | null;
 	cefr_level?: string | null;
 	calibration_version?: string | null;
+	// The baseline this score was produced under (PRD §21.3) — not the current
+	// one, so an older score never borrows a newer correlation.
+	calibration_sample_count?: number | null;
+	calibration_correlation?: string | null;
 	submitted_at?: string;
 	scored_at?: string | null;
 	categories?: WritingCategoryScore[];
 	grammar_corrections?: GrammarCorrection[];
 	vocabulary_suggestions?: VocabularySuggestion[];
+}
+
+/** GET /api/v1/writing/calibration (PRD §35.4) — current baseline for the
+ * learner's target exam. `calibrated: false` is an answer, not a failure. */
+export interface CalibrationMetadata {
+	exam_type: string;
+	calibrated: boolean;
+	calibration_version?: string;
+	sample_count?: number;
+	overall_pearson?: string;
+	calibration_date?: string;
 }
 
 export type AppealStatus = "pending" | "processing" | "resolved" | "failed";

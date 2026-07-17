@@ -47,6 +47,56 @@ function scoredRow(overrides: Record<string, unknown> = {}) {
 	};
 }
 
+describe("GET /api/v1/writing/result/:session_id — calibration transparency (PRD §21.3)", () => {
+	it("carries the sample count and correlation of the baseline the score ran under", async () => {
+		const db = makeFakeDb([
+			{
+				match: "FROM writing_sessions",
+				// Joined from calibration_baselines on the row's own calibration_version.
+				rows: [scoredRow({ sample_count: 247, overall_pearson: "0.8800" })],
+			},
+		]);
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
+
+		expect(res.json()).toMatchObject({
+			calibrated: true,
+			calibration_version: "v1.0-launch",
+			calibration_sample_count: 247,
+			calibration_correlation: "0.8800",
+		});
+	});
+
+	it("joins the baseline on the score's own version, not whatever is active now", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [scoredRow()] }]);
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
+
+		await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
+
+		// "This score *was* calibrated against N essays" — a later recalibration
+		// must not retroactively re-badge an older score.
+		const sql = db.calls.map((c) => c.text).join("\n");
+		expect(sql).toContain("cb.calibration_version = ws.calibration_version");
+		expect(sql).not.toContain("displayed_on_reports");
+	});
+
+	it("leaves the figures null when the baseline row is gone rather than inventing them", async () => {
+		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [scoredRow()] }]);
+		const { app, jwt } = await buildTestApp({ db });
+		const token = await signTestAccessToken(jwt);
+
+		const res = await app.inject({ method: "GET", url: resultUrl(), headers: bearerHeader(token) });
+
+		expect(res.json()).toMatchObject({
+			calibration_sample_count: null,
+			calibration_correlation: null,
+		});
+	});
+});
+
 describe("GET /api/v1/writing/result/:session_id", () => {
 	it("returns only status while pending", async () => {
 		const db = makeFakeDb([{ match: "FROM writing_sessions", rows: [{ id: SESSION_ID, status: "pending" }] }]);

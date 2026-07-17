@@ -12,6 +12,7 @@ import {
 } from "./writing.schema";
 import {
   getAppeal,
+  getCalibrationMetadata,
   getWritingResult,
   submitAppeal,
   submitWriting,
@@ -47,6 +48,12 @@ export default async function writingRoutes(
     );
 
     return reply.status(202).send({ session_id: sessionId, status: "pending" });
+  });
+
+  // Static path, declared before /result/:session_id so it can't be swallowed
+  // by a param route if one is ever added at this depth.
+  app.get("/calibration", async (request) => {
+    return getCalibrationMetadata(app.db, request.user!.learnerProfileId);
   });
 
   app.get("/result/:session_id", async (request) => {
