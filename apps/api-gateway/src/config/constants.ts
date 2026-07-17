@@ -38,8 +38,7 @@ export const REFRESH_KEY_PREFIX = "refresh:";
 // --- SRS ---
 export const SRS_STATE_KEY_PREFIX = "srs_state:";
 
-// Short because nothing invalidates it yet — session-complete lands later.
-export const SRS_STATE_TTL_SECONDS = 300;
+export const SRS_STATE_TTL_SECONDS = 60 * 60; // PRD §33
 
 // --- Daily micro-session ---
 export const SRS_DAILY_KEY_PREFIX = "srs_daily:";

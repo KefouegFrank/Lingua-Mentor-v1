@@ -39,6 +39,9 @@ class FakeProvider(LLMProvider):
 
     name = "fake"
 
+    def stream(self, messages, *, model, temperature, max_tokens=None):
+        raise NotImplementedError("scoring never streams")
+
     def __init__(self, responses: list[str]):
         self._responses = list(responses)
         self.calls: list[list[LLMMessage]] = []

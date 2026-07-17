@@ -5,7 +5,9 @@ httpx; no vendor SDK, keeping the dependency surface at exactly one HTTP
 client for all providers.
 """
 
+import json
 import time
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -14,12 +16,15 @@ from app.providers.llm.base import (
     LLMProvider,
     LLMProviderError,
     LLMResponse,
+    LLMStreamEvent,
+    LLMStreamResult,
 )
 
 _BASE_URL = "https://api.groq.com/openai/v1"
 # Statuses worth retrying against a fallback provider (PRD §11.3 failover
 # triggers: rate limit / unavailable).
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+_DONE_SENTINEL = "[DONE]"
 
 
 class GroqProvider(LLMProvider):
@@ -81,6 +86,79 @@ class GroqProvider(LLMProvider):
             input_token_count=usage.get("prompt_tokens", 0),
             output_token_count=usage.get("completion_tokens", 0),
             latency_ms=latency_ms,
+        )
+
+    async def stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        model: str,
+        temperature: float,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[LLMStreamEvent]:
+        payload: dict = {
+            "model": model,
+            "temperature": temperature,
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "stream": True,
+            # Without this the stream carries no token counts and AIModelRun
+            # would have to log zeros (§11.5).
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        started = time.monotonic()
+        first_token_ms: int | None = None
+        parts: list[str] = []
+        usage: dict = {}
+        model_version = model
+
+        try:
+            async with self._client.stream("POST", "/chat/completions", json=payload) as response:
+                if response.status_code != 200:
+                    body = (await response.aread()).decode()[:500]
+                    raise LLMProviderError(
+                        f"groq returned {response.status_code}: {body}",
+                        retryable=response.status_code in _RETRYABLE_STATUSES,
+                    )
+
+                async for line in response.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == _DONE_SENTINEL:
+                        break
+                    chunk = json.loads(data)
+                    if chunk.get("usage"):
+                        usage = chunk["usage"]
+                    if chunk.get("model"):
+                        model_version = chunk["model"]
+
+                    choices = chunk.get("choices") or []
+                    delta = (choices[0].get("delta") or {}).get("content") if choices else None
+                    if not delta:
+                        # Groq opens with a role-only chunk; timing off that
+                        # would report ~0ms and make the §51 target meaningless.
+                        continue
+                    if first_token_ms is None:
+                        first_token_ms = int((time.monotonic() - started) * 1000)
+                    parts.append(delta)
+                    yield LLMStreamEvent(delta=delta)
+        except httpx.HTTPError as exc:
+            raise LLMProviderError(f"groq stream failed: {exc}", retryable=True) from exc
+
+        yield LLMStreamEvent(
+            result=LLMStreamResult(
+                content="".join(parts),
+                provider=self.name,
+                model_name=model,
+                model_version=model_version,
+                input_token_count=usage.get("prompt_tokens", 0),
+                output_token_count=usage.get("completion_tokens", 0),
+                latency_ms=int((time.monotonic() - started) * 1000),
+                first_token_ms=first_token_ms,
+            )
         )
 
     async def aclose(self) -> None:

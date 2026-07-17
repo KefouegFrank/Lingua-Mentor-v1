@@ -29,6 +29,9 @@ def _valid_payload(dimension="grammar", exercises=4):
 class ScriptedProvider(LLMProvider):
     name = "scripted"
 
+    def stream(self, messages, *, model, temperature, max_tokens=None):
+        raise NotImplementedError("scoring never streams")
+
     def __init__(self, content: str):
         self._content = content
         self.calls: list[dict] = []
