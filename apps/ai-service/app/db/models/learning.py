@@ -10,6 +10,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -97,6 +99,54 @@ class DailySession(Base):
         ForeignKey("ai_model_runs.id", ondelete="RESTRICT")
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+
+
+class LessonSession(Base):
+    """A text mentor-chat session (PRD §35.3, ADR 0010) — the §29 ERD has no
+    lesson table, so this is new schema rather than a modelled one."""
+
+    __tablename__ = "lesson_sessions"
+    __table_args__ = (
+        Index("ix_lesson_sessions_learner_started", "learner_profile_id", "started_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    learner_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("learner_profiles.id", ondelete="CASCADE")
+    )
+    topic: Mapped[str | None] = mapped_column(String(200))
+    skill_targeted: Mapped[str | None] = mapped_column(String(30))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LessonMessage(Base):
+    """One chat turn — §19.4 Layer 7's conversation history."""
+
+    __tablename__ = "lesson_messages"
+    __table_args__ = (
+        Index("ix_lesson_messages_session_created", "lesson_session_id", "created_at"),
+        CheckConstraint("role IN ('learner', 'mentor')", name="ck_lesson_messages_role"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    lesson_session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("lesson_sessions.id", ondelete="CASCADE")
+    )
+    role: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str] = mapped_column(Text)
+    ai_model_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("ai_model_runs.id", ondelete="RESTRICT")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )

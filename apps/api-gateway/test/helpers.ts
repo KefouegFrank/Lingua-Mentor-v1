@@ -9,6 +9,7 @@ import type {
 	EvaluatePlacementInput,
 	DailySessionDto,
 	ExamPreview,
+	LessonSessionDto,
 	PersonaDto,
 	PlacementTaskDto,
 	SrsScheduleDto,
@@ -207,6 +208,8 @@ export function makeFakeAiService(
 		personas?: PersonaDto[];
 		dailySession?: DailySessionDto;
 		dailySessionError?: unknown;
+		chatChunks?: string[];
+		chatError?: unknown;
 		evaluateError?: unknown;
 		profileError?: unknown;
 		taskError?: unknown;
@@ -248,6 +251,29 @@ export function makeFakeAiService(
 			calls.push({ method: "generateDailySession", args: learnerProfileId });
 			if (opts.dailySessionError) throw opts.dailySessionError;
 			return opts.dailySession ?? DEFAULT_DAILY_SESSION;
+		},
+		async startLesson(learnerProfileId: string, topic?: string) {
+			calls.push({ method: "startLesson", args: { learnerProfileId, topic } });
+			return {
+				lesson_session_id: LESSON_SESSION_ID,
+				topic: topic ?? null,
+				started_at: new Date().toISOString(),
+			} satisfies LessonSessionDto;
+		},
+		async streamChat(learnerProfileId: string, lessonSessionId: string, message: string) {
+			calls.push({ method: "streamChat", args: { learnerProfileId, lessonSessionId, message } });
+			if (opts.chatError) throw opts.chatError;
+			const chunks = opts.chatChunks ?? [
+				'event: token\ndata: {"delta":"Hi"}\n\n',
+				'event: done\ndata: {"first_token_ms":120}\n\n',
+			];
+			const encoder = new TextEncoder();
+			return new ReadableStream<Uint8Array>({
+				start(controller) {
+					for (const c of chunks) controller.enqueue(encoder.encode(c));
+					controller.close();
+				},
+			});
 		},
 		async listPersonas() {
 			calls.push({ method: "listPersonas", args: undefined });
@@ -335,6 +361,7 @@ export async function buildTestApp(
 
 export const LEARNER_PROFILE_ID = DEFAULT_TEST_CLAIMS.lpid;
 export const SESSION_ID = "0a1b2c3d-aaaa-4bbb-8ccc-ddddeeeeffff";
+export const LESSON_SESSION_ID = "9f8e7d6c-bbbb-4ccc-8ddd-eeeeffff0000";
 
 export const DEFAULT_SRS_SCHEDULE: SrsScheduleDto = {
 	learner_profile_id: LEARNER_PROFILE_ID,

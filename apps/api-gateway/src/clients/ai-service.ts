@@ -95,6 +95,12 @@ export interface DailySessionDto {
 	generated: boolean;
 }
 
+export interface LessonSessionDto {
+	lesson_session_id: string;
+	topic: string | null;
+	started_at: string;
+}
+
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
 	getPlacementTask(examType: string): Promise<PlacementTaskDto>;
@@ -102,6 +108,12 @@ export interface AiServiceClient {
 	getSrsSchedule(learnerProfileId: string): Promise<SrsScheduleDto>;
 	listPersonas(): Promise<PersonaDto[]>;
 	generateDailySession(learnerProfileId: string): Promise<DailySessionDto>;
+	startLesson(learnerProfileId: string, topic?: string): Promise<LessonSessionDto>;
+	streamChat(
+		learnerProfileId: string,
+		lessonSessionId: string,
+		message: string,
+	): Promise<ReadableStream<Uint8Array>>;
 	listExams(): Promise<ExamPreview[]>;
 }
 
@@ -169,6 +181,34 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 				method: "POST",
 				body: JSON.stringify({ learner_profile_id: learnerProfileId }),
 			});
+		},
+		startLesson(learnerProfileId, topic) {
+			return call<LessonSessionDto>("/api/v1/mentor/lesson", {
+				method: "POST",
+				body: JSON.stringify({ learner_profile_id: learnerProfileId, topic: topic ?? null }),
+			});
+		},
+		async streamChat(learnerProfileId, lessonSessionId, message) {
+			// Deliberately not call(): that awaits res.json() and would buffer
+			// the whole reply, which is the one thing streaming exists to avoid.
+			let res: Response;
+			try {
+				res = await fetch(`${base}/api/v1/mentor/chat`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						learner_profile_id: learnerProfileId,
+						lesson_session_id: lessonSessionId,
+						message,
+					}),
+				});
+			} catch {
+				throw new AppError(502, "AI_SERVICE_UNREACHABLE", "evaluation service is unavailable");
+			}
+			if (!res.ok || !res.body) {
+				return toJson<never>(res);
+			}
+			return res.body;
 		},
 		listPersonas() {
 			// Proxied rather than duplicated here so the tier gate and the persona
