@@ -12,6 +12,7 @@ import authRoutes from "./modules/auth/auth.routes";
 import { JwtStrategy } from "./modules/auth/jwt.strategy";
 import placementRoutes from "./modules/placement/placement.routes";
 import sessionRoutes from "./modules/session/session.routes";
+import voiceRoutes from "./modules/voice/voice.routes";
 import usersRoutes from "./modules/users/users.routes";
 import writingRoutes, { writingPublicRoutes } from "./modules/writing/writing.routes";
 import { registerErrorEnvelope } from "./plugins/error-envelope";
@@ -120,6 +121,7 @@ export function buildApp(opts: AppOptions = {}): FastifyInstance {
 	app.register(writingRoutes, { prefix: "/api/v1/writing" });
 	app.register(placementRoutes, { prefix: "/api/v1/placement" });
 	app.register(sessionRoutes, { prefix: "/api/v1/session" });
+	app.register(voiceRoutes, { prefix: "/api/v1/voice" });
 
 	return app;
 }

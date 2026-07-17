@@ -8,6 +8,7 @@ import type {
 	CefrProfileDto,
 	EvaluatePlacementInput,
 	ExamPreview,
+	PersonaDto,
 	PlacementTaskDto,
 	SrsScheduleDto,
 } from "../src/clients/ai-service";
@@ -146,6 +147,30 @@ const DEFAULT_EXAMS: ExamPreview[] = [
 	},
 ];
 
+const DEFAULT_PERSONAS: PersonaDto[] = [
+	{
+		persona: "companion",
+		display_name: "Companion",
+		description: "Warm and encouraging.",
+		socratic_enabled: true,
+		pro_only: false,
+	},
+	{
+		persona: "coach",
+		display_name: "Coach",
+		description: "Direct and error-focused.",
+		socratic_enabled: true,
+		pro_only: true,
+	},
+	{
+		persona: "examiner",
+		display_name: "Examiner",
+		description: "Formal and clinical.",
+		socratic_enabled: false,
+		pro_only: true,
+	},
+];
+
 const DEFAULT_PLACEMENT_TASK: PlacementTaskDto = {
 	exam_type: "ielts_academic",
 	display_name: "IELTS Academic",
@@ -163,6 +188,7 @@ export function makeFakeAiService(
 		exams?: ExamPreview[];
 		task?: PlacementTaskDto;
 		srs?: SrsScheduleDto;
+		personas?: PersonaDto[];
 		evaluateError?: unknown;
 		profileError?: unknown;
 		taskError?: unknown;
@@ -199,6 +225,10 @@ export function makeFakeAiService(
 			calls.push({ method: "getSrsSchedule", args: learnerProfileId });
 			if (opts.srsError) throw opts.srsError;
 			return opts.srs ?? DEFAULT_SRS_SCHEDULE;
+		},
+		async listPersonas() {
+			calls.push({ method: "listPersonas", args: undefined });
+			return opts.personas ?? DEFAULT_PERSONAS;
 		},
 		async listExams() {
 			calls.push({ method: "listExams", args: undefined });

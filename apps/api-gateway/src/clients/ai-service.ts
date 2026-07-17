@@ -67,11 +67,20 @@ export interface SrsScheduleDto {
 	schedule: DimensionPriorityDto[];
 }
 
+export interface PersonaDto {
+	persona: string;
+	display_name: string;
+	description: string;
+	socratic_enabled: boolean;
+	pro_only: boolean;
+}
+
 export interface AiServiceClient {
 	evaluatePlacement(input: EvaluatePlacementInput): Promise<CefrProfileDto>;
 	getPlacementTask(examType: string): Promise<PlacementTaskDto>;
 	getCefrProfile(learnerProfileId: string): Promise<CefrProfileDto>;
 	getSrsSchedule(learnerProfileId: string): Promise<SrsScheduleDto>;
+	listPersonas(): Promise<PersonaDto[]>;
 	listExams(): Promise<ExamPreview[]>;
 }
 
@@ -133,6 +142,11 @@ export function createAiServiceClient(baseUrl: string): AiServiceClient {
 			return call<CefrProfileDto>(`/api/v1/placement/profile/${learnerProfileId}`, {
 				method: "GET",
 			});
+		},
+		listPersonas() {
+			// Proxied rather than duplicated here so the tier gate and the persona
+			// copy have one owner (same rule as listExams below).
+			return call<PersonaDto[]>("/api/v1/personas", { method: "GET" });
 		},
 		listExams() {
 			// Proxied from the exam YAMLs rather than duplicated as a frontend list,
