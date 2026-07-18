@@ -51,6 +51,9 @@ describe("DELETE /api/v1/user/me — GDPR erasure (ADR 0007)", () => {
 		expect(sql).toContain("category_1_feedback = NULL");
 		expect(sql).toContain("UPDATE score_appeals");
 		expect(sql).toContain("UPDATE speaking_sessions");
+		expect(sql).toContain("UPDATE lesson_messages");
+		expect(sql).toContain("content = ''");
+		expect(sql).toContain("UPDATE lesson_sessions");
 	});
 
 	it("never touches ai_model_runs — the calibration audit trail is not the learner's to delete", async () => {

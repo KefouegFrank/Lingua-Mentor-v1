@@ -2,10 +2,12 @@
   "name": "lingumentor",
   "private": true,
   "version": "0.1.0",
-  "description": "LinguaMentor monorepo root — see docs/architecture/project-structure-and-conventions.md",
+  "description": "LinguaMentor monorepo",
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:api-gateway": "pnpm --filter api-gateway dev",
+    "dev:ai-service": "cd apps/ai-service && .venv/bin/python -m uvicorn app.main:app --port 8000 --reload",
+    "dev:worker": "cd apps/worker && .venv/bin/python -m app.main",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

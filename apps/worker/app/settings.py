@@ -2,6 +2,9 @@
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 @dataclass(frozen=True)
@@ -14,7 +17,22 @@ class Settings:
     pregeneration_active_window_days: int = 14
 
 
+def _load_dotenv() -> None:
+    """Populate env from apps/worker/.env for local dev, matching how ai-service
+    reads its own (pydantic-settings). A no-op in containers, where the file is
+    absent and the runtime supplies env; setdefault lets real env always win."""
+    if not _ENV_FILE.is_file():
+        return
+    for line in _ENV_FILE.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
 def load_settings() -> Settings:
+    _load_dotenv()
     required = {
         name: os.environ.get(name) for name in ("REDIS_URL", "DATABASE_URL", "AI_SERVICE_URL")
     }

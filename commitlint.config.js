@@ -8,7 +8,6 @@ module.exports = {
 			2,
 			"always",
 			[
-				// feat/fix/docs are in use; the rest are standard types kept available.
 				"feat",
 				"fix",
 				"docs",
@@ -25,7 +24,6 @@ module.exports = {
 			2,
 			"always",
 			[
-				// Per-domain request boundary: gateway modules + ai-service routers.
 				"auth",
 				"users",
 				"placement",
@@ -34,18 +32,15 @@ module.exports = {
 				"voice",
 				"exam-simulation",
 				"billing",
-				// Whole-service scopes — a commit touching a service, not one module.
 				"gateway",
 				"frontend",
 				"worker",
 				"ai-service",
-				// ai-service/worker subsystems with no 1:1 gateway route.
 				"calibration",
 				"pipeline",
 				"adaptive-learning",
 				"readiness",
 				"srs",
-				// Shared workspace packages and repo-wide concerns.
 				"shared-schemas",
 				"infra",
 				"deps",

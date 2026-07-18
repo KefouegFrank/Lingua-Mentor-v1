@@ -77,8 +77,10 @@ export default function DashboardPage() {
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<Button variant="outline" className="w-full" disabled>
-									Coming soon
+								<Button asChild variant="outline" className="w-full">
+									<Link href="/practice/writing">
+										Practice now <ArrowRight className="h-4 w-4" />
+									</Link>
 								</Button>
 							</CardContent>
 						</Card>

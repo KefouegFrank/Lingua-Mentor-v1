@@ -110,6 +110,17 @@ export async function eraseAccount(db: DbClient, userId: string): Promise<boolea
 			`UPDATE speaking_sessions SET transcript_text = NULL WHERE learner_profile_id = $1`,
 			[learnerProfileId],
 		);
+		// Mentor turns quote the learner's own words back to correct them, so both
+		// sides carry re-identification risk; the ai_model_runs link stays (ADR 0010 §3).
+		await tx.query(
+			`UPDATE lesson_messages SET content = ''
+			 WHERE lesson_session_id IN (SELECT id FROM lesson_sessions WHERE learner_profile_id = $1)`,
+			[learnerProfileId],
+		);
+		await tx.query(
+			`UPDATE lesson_sessions SET topic = NULL WHERE learner_profile_id = $1`,
+			[learnerProfileId],
+		);
 		return true;
 	});
 }
