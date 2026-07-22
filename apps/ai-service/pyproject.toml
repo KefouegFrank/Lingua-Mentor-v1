@@ -5,9 +5,9 @@ description = "LinguaMentor AI orchestration service — the five engines"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = "^0.115"
-uvicorn = "^0.34"
-asyncpg = "^0.29"       # runtime queries; SQLAlchemy below never serves a request
+fastapi = ">=0.115,<0.140"
+uvicorn = ">=0.34,<0.52"
+asyncpg = ">=0.29,<0.32"       # runtime queries; SQLAlchemy below never serves a request
 sqlalchemy = "^2.0"     # models exist only for Alembic autogenerate — see app/db/models/
 alembic = "^1.13"
 pydantic = "^2.9"
@@ -23,7 +23,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
 pytest-asyncio = "^0.25"
-ruff = "^0.8"
+ruff = ">=0.8,<0.16"
 mypy = "^1.13"
 types-pyyaml = "^6.0"
 
