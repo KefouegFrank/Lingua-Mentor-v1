@@ -10,36 +10,36 @@ import enum
 from sqlalchemy import Enum as SAEnum
 
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.StrEnum):
     LEARNER = "learner"
     ADMIN = "admin"
     INSTITUTION_ADMIN = "institution_admin"
 
 
-class SubscriptionTier(str, enum.Enum):
+class SubscriptionTier(enum.StrEnum):
     FREE = "free"
     PRO = "pro"
 
 
-class TeachingPersona(str, enum.Enum):
+class TeachingPersona(enum.StrEnum):
     COMPANION = "companion"
     COACH = "coach"
     EXAMINER = "examiner"
 
 
-class LearningTrack(str, enum.Enum):
+class LearningTrack(enum.StrEnum):
     FLUENCY = "fluency"
     EXAM = "exam"
 
 
-class WritingSessionStatus(str, enum.Enum):
+class WritingSessionStatus(enum.StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     SCORED = "scored"
     FAILED = "failed"
 
 
-class AppealStatus(str, enum.Enum):
+class AppealStatus(enum.StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     RESOLVED = "resolved"
@@ -48,14 +48,14 @@ class AppealStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class SpeakingSessionType(str, enum.Enum):
+class SpeakingSessionType(enum.StrEnum):
     PRACTICE = "practice"
     PLACEMENT = "placement"
     EXAM_SECTION = "exam_section"
     DAILY_DIAGNOSTIC = "daily_diagnostic"
 
 
-class ExamAttemptStatus(str, enum.Enum):
+class ExamAttemptStatus(enum.StrEnum):
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
     COMPLETED = "completed"

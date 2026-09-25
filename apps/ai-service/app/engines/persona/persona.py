@@ -12,7 +12,7 @@ import enum
 from dataclasses import dataclass
 
 
-class Persona(str, enum.Enum):
+class Persona(enum.StrEnum):
     """Mirrors the `teaching_persona` PG enum (db/models/enums.py)."""
 
     COMPANION = "companion"
