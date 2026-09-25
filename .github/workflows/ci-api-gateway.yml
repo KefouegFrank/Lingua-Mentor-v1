@@ -1,14 +1,7 @@
 name: CI - api-gateway
 on:
-  pull_request:
-    paths:
-      - "apps/api-gateway/**"
-      - "packages/**"
-  # Callable by deploy.yml so a push to main runs these exact checks before
-  # anything is built or shipped. The `paths` filter above deliberately does
-  # not apply to a workflow_call: on the PR path it's a speed optimisation
-  # (skip unaffected services), but a deploy ships every service, so every
-  # service gets verified regardless of what the diff touched.
+  # Runs only when called: ci.yml on pull requests (with per-service path
+  # filtering inside the workflow) and deploy.yml on every push to main.
   workflow_call:
 jobs:
   build-and-test:

@@ -1,0 +1,101 @@
+name: CI
+on:
+  # No `paths:` here: a path-filtered required check never reports on other
+  # PRs and leaves them stuck on "Expected". The `changes` job filters instead.
+  pull_request:
+
+# A newer push to the same PR makes the older run obsolete.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# paths-filter lists changed files through the API (pull-requests: read);
+# the called workflows only check out code.
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ai-service: ${{ steps.filter.outputs.ai-service }}
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      # Toolchain and CI files count too, so changing how a service is built
+      # re-verifies it even when none of its source changed.
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            node-root: &node-root
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+            api-gateway:
+              - *node-root
+              - "apps/api-gateway/**"
+              - "packages/**"
+              - ".github/workflows/ci-api-gateway.yml"
+            frontend:
+              - *node-root
+              - "apps/frontend/**"
+              - "packages/**"
+              - ".github/workflows/ci-frontend.yml"
+            ai-service:
+              - "apps/ai-service/**"
+              - ".python-version"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/ci-ai-service.yml"
+            worker:
+              - "apps/worker/**"
+              - ".python-version"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/ci-worker.yml"
+
+  api-gateway:
+    needs: changes
+    if: needs.changes.outputs.api-gateway == 'true'
+    uses: ./.github/workflows/ci-api-gateway.yml
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/ci-frontend.yml
+
+  ai-service:
+    needs: changes
+    if: needs.changes.outputs.ai-service == 'true'
+    uses: ./.github/workflows/ci-ai-service.yml
+
+  worker:
+    needs: changes
+    if: needs.changes.outputs.worker == 'true'
+    uses: ./.github/workflows/ci-worker.yml
+
+  # Never path-filtered: a secret can land in any file.
+  security:
+    uses: ./.github/workflows/ci-security.yml
+
+  # The only check the ruleset should require. Skipped (service untouched)
+  # passes; any failure or cancellation, `changes` included, fails it.
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [changes, api-gateway, frontend, ai-service, worker, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream results
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "Upstream results: $RESULTS"
+          if echo "$RESULTS" | grep -Eq '"(failure|cancelled)"'; then
+            echo "::error::One or more CI jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All affected services passed."

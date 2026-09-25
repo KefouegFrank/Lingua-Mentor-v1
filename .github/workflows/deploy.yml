@@ -4,12 +4,12 @@ on:
     branches: [main]
 
 # A push to main is the only thing that ships, so this workflow — not the
-# pull_request triggers on the ci-*.yml files — is what actually gates
-# production. Every commit in this repo's history so far went straight to
-# main with no PR, which means CI triggered on pull_request alone would
-# never once have run before a deploy. The four `verify-*` jobs below call
-# those same workflows via workflow_call so the checks run on the direct-to-
-# main path too, and `build-and-push` needs all four to pass first.
+# PR checks in ci.yml — is what actually gates production. Every commit in
+# this repo's history so far went straight to main with no PR, which means
+# CI triggered on pull_request alone would never once have run before a
+# deploy. The five `verify-*` jobs below call the same ci-*.yml workflows
+# via workflow_call so the checks run on the direct-to-main path too, and
+# `build-and-push` needs all five to pass first.
 #
 # Job order is deliberate:
 #   verify-*       — nothing is built until every service's tests pass
