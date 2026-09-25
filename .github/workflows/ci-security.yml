@@ -1,9 +1,7 @@
 name: CI - security
 on:
-  # Not path-filtered, unlike the per-service ci-*.yml workflows: a secret
-  # can be committed into any file in any directory, so there is no subset
-  # of paths where skipping this would be safe.
-  pull_request:
+  # Called by ci.yml on every PR (never path-filtered: a secret can land in
+  # any file) and by deploy.yml on every push to main.
   workflow_call:
 
 jobs:
