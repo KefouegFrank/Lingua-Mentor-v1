@@ -26,10 +26,14 @@ updates:
     groups:
       # Patch/minor churn from a dozen small packages is the fastest way to
       # train yourself to rubber-stamp Dependabot PRs without reading them.
-      # Grouping them into one PR per week keeps each PR worth reviewing;
-      # majors stay separate because those are the ones that break builds.
+      # Grouping them into one PR per week keeps each PR worth reviewing.
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Majors (next, react, tailwind, …) are migrations to plan, not weekly PRs.
+      # Security updates still arrive: update-types only filters version updates.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     commit-message:
       # Matches the scope-enum in commitlint.config.js — an ungrouped
       # Dependabot commit would otherwise fail the commit-msg hook on merge.
@@ -44,6 +48,10 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Same as npm: no major-version PRs; security updates unaffected.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -55,6 +63,10 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Same as npm: no major-version PRs; security updates unaffected.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -67,6 +79,13 @@ updates:
       - "/apps/worker"
     schedule:
       interval: "weekly"
+    ignore:
+      # Runtime bumps move together with .nvmrc, .python-version and CI.
+      # python 3.12 -> 3.14 counts as a minor, hence both types for python.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     commit-message:
       prefix: "chore(deps)"
 
